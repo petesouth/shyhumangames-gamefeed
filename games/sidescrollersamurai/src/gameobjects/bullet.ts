@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BaseExplodable } from './baseExplodable';
 import { Utils } from '../utils/utils';
 
@@ -10,8 +10,13 @@ export class Bullet extends BaseExplodable {
     
     protected colors: number[];
 
+    // Base dimensions for resolution scaling
+    protected static BASE_WIDTH = 2065;
+    protected static BASE_HEIGHT = 1047;
+
     constructor(protected scene: Phaser.Scene, startX: number, startY: number, angle: number, colors: number[] = [0xffa500, 0xff4500]) {
-        super(scene, scene.add.graphics(), [new Phaser.Geom.Point(startX, startY)]);
+        // Migrated Geom.Point instantiation to Math.Vector2
+        super(scene, scene.add.graphics(), [new Phaser.Math.Vector2(startX, startY)]);
 
         this.colors = colors;
         this.maxDistance = 0.5 * Math.max(scene.scale.width, scene.scale.height);
@@ -37,7 +42,8 @@ export class Bullet extends BaseExplodable {
     }
 
     public drawObjectAlive() {
-        const ratioSpeed = Utils.computeRatioValue(this.speed);
+        // Included decoupled base dimensions to calculate relative speed scaling
+        const ratioSpeed = Utils.computeRatioValue(this.speed, Bullet.BASE_WIDTH, Bullet.BASE_HEIGHT);
         const dx = this.direction.x * ratioSpeed;
         const dy = this.direction.y * ratioSpeed;
         this._points[0].x += dx;
@@ -52,7 +58,10 @@ export class Bullet extends BaseExplodable {
         const chosenColor = Phaser.Utils.Array.GetRandom(this.colors);
         this.graphics.fillStyle(chosenColor);
         const theCenter = this.getCentroid();
-        this.graphics.fillCircle(theCenter.x, theCenter.y, Utils.computeRatioValue(4));  // 4 pixel radius
+
+        // Included decoupled base dimensions to calculate relative circle radius scaling
+        const radius = Utils.computeRatioValue(4, Bullet.BASE_WIDTH, Bullet.BASE_HEIGHT);
+        this.graphics.fillCircle(theCenter.x, theCenter.y, radius);
         this.handleScreenWrap();
     }
 

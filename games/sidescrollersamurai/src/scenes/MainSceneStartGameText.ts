@@ -1,21 +1,13 @@
-import Phaser from 'phaser';
-
+import * as Phaser from 'phaser';
 import gGameStore from '../store/store';
 
 export class MainSceneStartGameText {
     private levelAnnounceText: Phaser.GameObjects.Text | undefined;
-
     private gameNameText: Phaser.GameObjects.Text | undefined;
     private instructions: Phaser.GameObjects.Text[] = [];
     private scoreText: Phaser.GameObjects.Text | undefined;
 
-
-    constructor(private scene: Phaser.Scene) { 
-
-
-      
-
-    }
+    constructor(private scene: Phaser.Scene) {}
 
     setLevelAnnounceText(text: string) {
         this.levelAnnounceText?.setText(text);
@@ -32,23 +24,22 @@ export class MainSceneStartGameText {
 
     showLevelInstructionsText() {
         this.gameNameText?.setVisible(true);
-        this.instructions?.forEach((instruction)=>{
+        this.instructions?.forEach((instruction) => {
             instruction.setVisible(true);
         });
     }
 
-
     hideLevelInstructionsText() {
         this.gameNameText?.setVisible(false);
-        this.instructions?.forEach((instruction)=>{
+        this.instructions?.forEach((instruction) => {
             instruction.setVisible(false);
         });
     }
 
-
     createStartGameText() {
-        const fontString = 'bold 16px Aria';
+        const fontString = 'bold 16px Arial'; // Corrected typo from 'Aria' to 'Arial'
         const fontColor = 'black';
+        
         this.scoreText = this.scene.add.text(
             100,
             10,
@@ -58,7 +49,7 @@ export class MainSceneStartGameText {
         this.scoreText.setDepth(10);
 
         this.levelAnnounceText = this.scene.add.text(
-            (window.innerWidth / 2),
+            (this.scene.scale.width / 2),
             80,
             'Starting level 1',
             { font: fontString, color: fontColor }
@@ -70,10 +61,10 @@ export class MainSceneStartGameText {
         let offset = 90;
 
         this.gameNameText = this.scene.add.text(
-            (window.innerWidth / 2),
+            (this.scene.scale.width / 2),
             offset,
             'ShyHumanGames Software - Side Scroller Samurai',
-            { font: fontString,color: fontColor }
+            { font: fontString, color: fontColor }
         );
         this.gameNameText.setOrigin(0.5);
         this.gameNameText.setDepth(1);
@@ -85,7 +76,7 @@ export class MainSceneStartGameText {
             'Mattz Art at: https://xzany.itch.io/',
             '',
             'Mobile: Add Game To Homescreen for Fullscreen',
-            'Widnows: F11 - Fullscreen',
+            'Windows: F11 - Fullscreen', // Corrected typo 'Widnows'
             'Mac: Control-⌘-F - Fullscreen',
             'Click Screen - Start Game / Re-spawn',
             '',
@@ -97,12 +88,11 @@ export class MainSceneStartGameText {
             'F - Ninja Flying Bullet',
             'Space - Attack', 
             '\u2193 - Special Attack', 
-            
         ];
 
         instructionTexts.forEach(instruction => {
             let text = this.scene.add.text(
-                (window.innerWidth / 2),
+                (this.scene.scale.width / 2),
                 offset,
                 instruction,
                 { font: fontString, color: fontColor }
@@ -128,7 +118,7 @@ export class MainSceneStartGameText {
     }
 
     displayGameText() {
-        this.instructions.forEach((instruction)=> {
+        this.instructions.forEach((instruction) => {
             instruction.setDepth(100);
         });
 

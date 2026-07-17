@@ -1,16 +1,16 @@
-import Phaser from 'phaser';
+/// <reference path="../node_modules/phaser/types/phaser.d.ts" />
+import * as Phaser from 'phaser';
 import { SplashScreen } from './scenes/SplashScreen';
 import { MainScene } from './scenes/MainScene';
 
-
-
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.WEBGL,
-    width: "100%",
-    height: "100%",
+    // Width and height converted to numbers for strict type safety
+    width: window.innerWidth,
+    height: window.innerHeight,
     parent: 'game',
     fps: {
-        limit: 40,  // This will limit the game to 60 frames per second
+        limit: 60,
     },
     scene: [SplashScreen, MainScene],
     scale: {
@@ -25,8 +25,8 @@ const config: Phaser.Types.Core.GameConfig = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 0, x:0 },
-            debug: false,  // Set true if you want to see the physics debug info
+            gravity: { y: 0, x: 0 },
+            debug: false,
             checkCollision: {
                 up: true,
                 down: true,
@@ -37,53 +37,32 @@ const config: Phaser.Types.Core.GameConfig = {
     },
 };
 
-
-
 export default class Game extends Phaser.Game {
     constructor() {
         super(config);
 
-        // Add event listeners for key presses
         window.addEventListener("resize", this.handleWindowResize.bind(this));
         document.getElementById("game")?.focus();
-        this.input.addPointer();
         
-        
-        this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, () => {
-            this.handleWindowResize();
-        })
-
-
-        this.scale.on(Phaser.Scale.Events.FULLSCREEN_FAILED, () => {
-            this.handleWindowResize();
-        })
-
-        this.scale.on(Phaser.Scale.Events.FULLSCREEN_UNSUPPORTED, () => {
-            this.handleWindowResize();
-        })
-
-        this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, () => {
-            this.handleWindowResize();
-        })
-
-
+        // Setup Resize Listeners
+        this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, this.handleWindowResize, this);
+        this.scale.on(Phaser.Scale.Events.FULLSCREEN_FAILED, this.handleWindowResize, this);
+        this.scale.on(Phaser.Scale.Events.FULLSCREEN_UNSUPPORTED, this.handleWindowResize, this);
+        this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, this.handleWindowResize, this);
     }
 
     handleWindowResize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-        const { width, height }: { width: number, height: number } = { width: window.innerWidth, height: window.innerHeight };
-        const mainScene = this.scene.getScene("MainScene") as MainScene;
-        mainScene.scale.setGameSize(width, height);
-        mainScene.handleWindowResize(width, height);
-
-        const splashScreen = this.scene.getScene("SplashScreen") as SplashScreen;
-        splashScreen.scale.setGameSize(width, height);
-        splashScreen.handleWindowResize(width, height);
-
+        // Safer scene retrieval
+        const scenes = ['MainScene', 'SplashScreen'];
+        scenes.forEach(key => {
+            const scene = this.scene.getScene(key);
+            if (scene && scene.scene.isActive()) {
+                // Safely invoke the scene's custom resize method
+                (scene as any).handleWindowResize?.(width, height);
+            }
+        });
     }
-
-
-
-
-
 }

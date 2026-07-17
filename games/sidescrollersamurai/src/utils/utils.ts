@@ -1,13 +1,12 @@
-import { MainScene } from "../scenes/MainScene";
-
-
-
-
+import * as Phaser from 'phaser';
 
 export class Utils {
 
-    public static resizeImateToRatio(image: Phaser.GameObjects.Image | Phaser.Physics.Arcade.Sprite | Phaser.GameObjects.TileSprite,
-        screenWidth: number, screenHeight: number) {
+    public static resizeImageToRatio(
+        image: Phaser.GameObjects.Image | Phaser.Physics.Arcade.Sprite | Phaser.GameObjects.TileSprite,
+        screenWidth: number, 
+        screenHeight: number
+    ) {
         if (!image) {
             return;
         }
@@ -17,37 +16,35 @@ export class Utils {
 
         let newWidth, newHeight;
 
-        // The image is wider relative to the screen, set the image width to match the screen width
         newWidth = screenWidth;
-        newHeight = newWidth / imageAspectRatio;  // Adjust height proportionally
+        newHeight = newWidth / imageAspectRatio;
 
-        // Check if the new height is less than the screen height, if so adjust the dimensions
         if (newHeight < screenHeight) {
             newHeight = screenHeight;
-            newWidth = newHeight * imageAspectRatio;  // Adjust width proportionally
+            newWidth = newHeight * imageAspectRatio;
         }
         image.setDisplaySize(newWidth, newHeight);
-
-        // Ensure the image is positioned in the center of the screen
         image.setPosition(screenWidth / 2, screenHeight / 2);
-
     }
 
-    public static computeRatioValue(speed: number): number {
-        
+    // Removed the MainScene import to prevent circular compilation locks.
+    // Pass the golden ratio width/height context configurations explicitly.
+    public static computeRatioValue(speed: number, baseWidth: number, baseHeight: number): number {
         const scale = Math.max(window.innerWidth, window.innerHeight);
-        const origScale = Math.max(MainScene.GOLDEN_RATIO.width, MainScene.GOLDEN_RATIO.height);
+        const origScale = Math.max(baseWidth, baseHeight);
         let percentDifference = scale / origScale;
-        const scaledSpeed = speed * percentDifference;
-        return scaledSpeed;
+        return speed * percentDifference;
     }
 
-
-    public static compuateWidthHeightRatioMax(width: number, height: number): { ratioWidth: number, ratioHeight: number } {
-        return { ratioWidth: Utils.computeRatioValue(width), ratioHeight: Utils.computeRatioValue(height) }
-
+    public static computeWidthHeightRatioMax(
+        width: number, 
+        height: number, 
+        baseWidth: number, 
+        baseHeight: number
+    ): { ratioWidth: number, ratioHeight: number } {
+        return { 
+            ratioWidth: Utils.computeRatioValue(width, baseWidth, baseHeight), 
+            ratioHeight: Utils.computeRatioValue(height, baseWidth, baseHeight) 
+        };
     }
-
-
-
 }

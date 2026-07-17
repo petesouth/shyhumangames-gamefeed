@@ -1,8 +1,8 @@
+
+
 import Phaser from 'phaser';
 import { Utils } from '../utils/utils';
-
-
-
+import { MainScene } from './MainScene';
 
 export class SplashScreen extends Phaser.Scene {
 
@@ -20,7 +20,6 @@ export class SplashScreen extends Phaser.Scene {
 
     constructor() {
         super('SplashScreen');
-
     }
 
     preload() {
@@ -56,14 +55,14 @@ export class SplashScreen extends Phaser.Scene {
         this.load.image("bricks4", 'textures/bricks4.png');
         this.load.tilemapTiledJSON('tilemap', 'textures/tilemap.json');
         this.load.image('tilesetImage', 'textures/tilemap.png');
-        
+
 
 
         this.load.image("grassmountains", 'backgrounds/grassmountains.png');
         this.load.image("rockmountains", 'backgrounds/rockmountains.png');
         this.load.image("sky", 'backgrounds/sky.png');
         this.load.image("clouds", 'backgrounds/clouds.png');
-    
+
         this.load.atlas('heroidle', 'images/herosamurai/IDLE.png', 'images/herosamurai/IDLE.json');
         this.load.atlas('herorun', 'images/herosamurai/RUN.png', 'images/herosamurai/RUN.json');
         this.load.atlas('herojump', 'images/herosamurai/JUMP.png', 'images/herosamurai/JUMP.json');
@@ -85,8 +84,6 @@ export class SplashScreen extends Phaser.Scene {
         this.splashText?.setOrigin(0.5);
         this.splashText?.setDepth(1);
 
-
-
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             this.scene.start('MainScene');
             pointer.event.preventDefault();
@@ -96,24 +93,64 @@ export class SplashScreen extends Phaser.Scene {
 
 
     public handleWindowResize(w: number, h: number) {
-        this.splashText?.setPosition(w / 2, SplashScreen.TEXT_TOP_PADDING);
+        // Keep text perfectly centered at the top
+        this.splashText?.setPosition(window.innerWidth / 2, SplashScreen.TEXT_TOP_PADDING);
         this.splashText?.setDepth(1);
 
         if (this.gamescreenBackgroundImage) {
-            Utils.resizeImateToRatio(this.gamescreenBackgroundImage, window.innerWidth, window.innerHeight);
+            // Keep the image anchored directly in the center of the screen
+            this.gamescreenBackgroundImage.setPosition(window.innerWidth / 2, window.innerHeight / 2);
+
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+
+            const imageWidth = MainScene.GOLDEN_RATIO.width;
+            const imageHeight = MainScene.GOLDEN_RATIO.height;
+            const imageAspectRatio = imageWidth / imageHeight;
+            const screenAspectRatio = screenWidth / screenHeight;
+
+            let targetWidth, targetHeight;
+
+            if (screenAspectRatio > imageAspectRatio) {
+                // Screen is wider than the image: scale to match the viewport height
+                targetHeight = screenHeight;
+                targetWidth = targetHeight * imageAspectRatio;
+            } else {
+                // Screen is taller than the image: scale to match the viewport width
+                targetWidth = screenWidth;
+                targetHeight = targetWidth / imageAspectRatio;
+            }
+
+            this.gamescreenBackgroundImage.setDisplaySize(targetWidth, targetHeight);
         }
     }
 
-
-
     createBackgroundImage() {
-        this.gamescreenBackgroundImage = this.add.image(window.innerWidth / 2,
-            window.innerHeight / 2, "gamescreen"
+        this.gamescreenBackgroundImage = this.add.image(
+            window.innerWidth / 2,
+            window.innerHeight / 2,
+            "gamescreen"
         );
 
-        Utils.resizeImateToRatio(this.gamescreenBackgroundImage, window.innerWidth, window.innerHeight);
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        const imageWidth = MainScene.GOLDEN_RATIO.width;
+        const imageHeight = MainScene.GOLDEN_RATIO.height;
+        const imageAspectRatio = imageWidth / imageHeight;
+        const screenAspectRatio = screenWidth / screenHeight;
+
+        let targetWidth, targetHeight;
+
+        if (screenAspectRatio > imageAspectRatio) {
+            targetHeight = screenHeight;
+            targetWidth = targetHeight * imageAspectRatio;
+        } else {
+            targetWidth = screenWidth;
+            targetHeight = targetWidth / imageAspectRatio;
+        }
+
+        this.gamescreenBackgroundImage.setDisplaySize(targetWidth, targetHeight);
     }
-
-
 
 }

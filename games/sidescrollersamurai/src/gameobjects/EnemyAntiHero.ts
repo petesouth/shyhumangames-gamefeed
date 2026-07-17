@@ -1,18 +1,11 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { Mine } from './mine';
 import { BaseExplodableState } from './baseExplodable';
 import { SoundPlayer } from './SoundPlayer';
 import { Bullet } from './bullet';
 import { SpriteHeroAnimationState } from './SpriteHero';
 
-
-
-
-
-
 export class EnemyAntiHero {
-
-
     protected spriteRun?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteIdle?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteJump?: Phaser.Physics.Arcade.Sprite | null;
@@ -20,9 +13,7 @@ export class EnemyAntiHero {
     protected spriteSpecialAttack?: Phaser.Physics.Arcade.Sprite | null;
     public soundPlayer: SoundPlayer;
 
-    protected attackRate: number = 200;  // 1000 ms = 1 second
-
-
+    protected attackRate: number = 200;
 
     protected cursors: Phaser.Types.Input.Keyboard.CursorKeys;
     protected mineKey?: Phaser.Input.Keyboard.Key;
@@ -33,22 +24,20 @@ export class EnemyAntiHero {
     protected animationState: SpriteHeroAnimationState = SpriteHeroAnimationState.IDLE;
 
     protected swingingSwordSpecial: boolean = false;
-    protected swordAttackRateSpecial: number = 800;  // 1000 ms = 1 second
+    protected swordAttackRateSpecial: number = 800;
 
     protected swingingSword: boolean = false;
-    protected swordAttackRate: number = 800;  // 1000 ms = 1 second
-
+    protected swordAttackRate: number = 800;
 
     protected lastMinePlaced: number = 0;
-    protected mineRate: number = 500;  // 1000 ms = 1 second
+    protected mineRate: number = 500;
     protected mines: Mine[] = [];
 
     protected lastBullet: number = 0;
-    protected bulletRate: number = 500;  // 1000 ms = 1 second
+    protected bulletRate: number = 500;
     protected bullets: Bullet[] = [];
 
-    constructor(scene: Phaser.Scene,
-        cursors: Phaser.Types.Input.Keyboard.CursorKeys, soundPlayer: SoundPlayer) {
+    constructor(scene: Phaser.Scene, cursors: Phaser.Types.Input.Keyboard.CursorKeys, soundPlayer: SoundPlayer) {
         this.scene = scene;
         this.cursors = cursors;
         this.soundPlayer = soundPlayer;
@@ -64,12 +53,10 @@ export class EnemyAntiHero {
         sprites.forEach((sprite) => {
             applyHandler(sprite);
         });
-
     }
 
     showSpriteFromState(animationState: SpriteHeroAnimationState) {
         this.animationState = animationState;
-
 
         switch (this.animationState) {
             case SpriteHeroAnimationState.IDLE:
@@ -123,9 +110,7 @@ export class EnemyAntiHero {
                 this.soundPlayer?.playSword2Sound();
                 break;
         }
-
     }
-
 
     drawHeroSprite() {
         this.handleSpriteMovement();
@@ -133,7 +118,6 @@ export class EnemyAntiHero {
         this.handleBullets();
         this.handleSwordAttacksSpecial();
         this.handleSwordAttacks();
-
     }
 
     private handleSpriteMovement() {
@@ -141,21 +125,19 @@ export class EnemyAntiHero {
             return;
         }
 
-
         if (this.cursors.left.isDown) {
             this.applyToAllSprites(sprite => sprite.setFlipX(true));
             if (this.spriteIdle.body.touching.down) {
                 this.showSpriteFromState(SpriteHeroAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(-100)); // Move left
+                this.applyToAllSprites(sprite => sprite.setVelocityX(-100));
             }
         } else if (this.cursors.right.isDown) {
             this.applyToAllSprites(sprite => sprite.setFlipX(false));
             if (this.spriteIdle.body.touching.down) {
                 this.showSpriteFromState(SpriteHeroAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(100)); // Move right
+                this.applyToAllSprites(sprite => sprite.setVelocityX(100));
             }
         } else {
-            // Idle state
             this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             if (this.spriteIdle.body.touching.down) {
                 this.showSpriteFromState(SpriteHeroAnimationState.IDLE);
@@ -164,24 +146,20 @@ export class EnemyAntiHero {
             }
         }
 
-        // Handle jumping
         if (this.cursors.up.isDown && (this.spriteIdle.body.touching.down)) {
             this.applyToAllSprites(sprite => sprite.setVelocityY(-480));
             this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
         }
-
-
     }
 
     public drawMines(x?: number) {
-
         const minesLeft: Mine[] = [];
         this.mines.forEach((mine) => {
             if (mine.state !== BaseExplodableState.DESTROYED) {
                 minesLeft.push(mine);
             }
             if (x !== undefined) {
-                mine.inrementX(x);
+                mine.incrementX(x); // Fixed typo from inrementX to incrementX
             }
             mine.render();
         });
@@ -189,9 +167,7 @@ export class EnemyAntiHero {
         this.mines = minesLeft;
     }
 
-
     public drawBullets(x?: number) {
-
         const bulletsLeft: Bullet[] = [];
         this.bullets.forEach((bullet) => {
             if (bullet.state !== BaseExplodableState.DESTROYED) {
@@ -206,78 +182,73 @@ export class EnemyAntiHero {
         this.bullets = bulletsLeft;
     }
 
-
-
-
     protected loadAnimationConfiguration() {
         this.scene.anims.create({
-            key: 'enemyrun', // This is the key for the animation itself
+            key: 'enemyrun',
             frames: this.scene.anims.generateFrameNames('enemyrun', {
-                prefix: 'run/frame000', // Adjusted to match the frame names in the JSON
-                start: 0, // Starting frame index is 0
-                end: 8, // Ending at frame index 2 for a total of 3 frames
-                zeroPad: 1 // Adjust if your frame names have leading zeros
+                prefix: 'run/frame000',
+                start: 0,
+                end: 8,
+                zeroPad: 1
             }),
             frameRate: 10,
             repeat: -1
         });
         this.scene.anims.create({
-            key: 'enemyjump', // This is the key for the animation itself
+            key: 'enemyjump',
             frames: this.scene.anims.generateFrameNames('enemyjump', {
-                prefix: 'jump/frame000', // Adjusted to match the frame names in the JSON
-                start: 0, // Starting frame index is 0
-                end: 8, // Ending at frame index 2 for a total of 3 frames
-                zeroPad: 1 // Adjust if your frame names have leading zeros
+                prefix: 'jump/frame000',
+                start: 0,
+                end: 8,
+                zeroPad: 1
             }),
             frameRate: 10,
             repeat: -1
         });
         this.scene.anims.create({
-            key: 'enemyidle', // This is the key for the animation itself
+            key: 'enemyidle',
             frames: this.scene.anims.generateFrameNames('enemyidle', {
-                prefix: 'idle/frame000', // Adjusted to match the frame names in the JSON
-                start: 0, // Starting frame index is 0
-                end: 3, // Ending at frame index 2 for a total of 3 frames
-                zeroPad: 1 // Adjust if your frame names have leading zeros
+                prefix: 'idle/frame000',
+                start: 0,
+                end: 3,
+                zeroPad: 1
             }),
             frameRate: 10,
             repeat: -1
         });
         this.scene.anims.create({
-            key: 'enemyattack', // This is the key for the animation itself
+            key: 'enemyattack',
             frames: this.scene.anims.generateFrameNames('enemyattack', {
-                prefix: 'basicattack/frame000', // Adjusted to match the frame names in the JSON
-                start: 0, // Starting frame index is 0
-                end: 9, // Ending at frame index 2 for a total of 3 frames
-                zeroPad: 1 // Adjust if your frame names have leading zeros
+                prefix: 'basicattack/frame000',
+                start: 0,
+                end: 9,
+                zeroPad: 1
             }),
             frameRate: 10,
             repeat: -1
         });
         this.scene.anims.create({
-            key: 'enemyspecialattack', // This is the key for the animation itself
+            key: 'enemyspecialattack',
             frames: this.scene.anims.generateFrameNames('enemyspecialattack', {
-                prefix: 'specialattack/frame000', // Adjusted to match the frame names in the JSON
-                start: 0, // Starting frame index is 0
-                end: 10, // Ending at frame index 2 for a total of 3 frames
-                zeroPad: 1 // Adjust if your frame names have leading zeros
+                prefix: 'specialattack/frame000',
+                start: 0,
+                end: 10,
+                zeroPad: 1
             }),
             frameRate: 10,
             repeat: -1
         });
-
     }
 
     getStaticXPosition() {
-        return (window.innerWidth / 4);
+        return (this.scene.scale.width / 4);
     }
 
     createHeroSprite() {
         this.loadAnimationConfiguration();
 
-        const xPos = window.innerWidth / 2;
-        const yPos = 0; // Modify as needed, perhaps to `window.innerHeight - MainScene.GROUND_HEIGHT`
-
+        const xPos = this.scene.scale.width / 2;
+        const yPos = 0;
 
         this.spriteRun = this.scene.physics.add.sprite(xPos, yPos, 'enemyrun');
         this.spriteJump = this.scene.physics.add.sprite(xPos, yPos, 'enemyjump');
@@ -285,9 +256,8 @@ export class EnemyAntiHero {
         this.spriteAttack = this.scene.physics.add.sprite(xPos, yPos, 'enemyattack');
         this.spriteSpecialAttack = this.scene.physics.add.sprite(xPos, yPos, 'enemyspecialattack');
 
-
         this.applyToAllSprites((sprite) => {
-            sprite.setDisplaySize(156, 120); // Set the display size of the spritefffffffffffff
+            sprite.setDisplaySize(156, 120);
             sprite.setBodySize(25, 36);
             sprite.setOffset(50, 20);
             sprite.setVisible(false);
@@ -304,19 +274,18 @@ export class EnemyAntiHero {
             sprite.refreshBody();
         });
 
-        // Resetting the animation state to ensure correct display
         this.showSpriteFromState(this.animationState);
     }
 
-    public getCentroidBottomSide(): Phaser.Geom.Point {
-        return new Phaser.Geom.Point(this.spriteIdle?.getBottomCenter().x, this.spriteIdle?.getBottomCenter().y);
+    // Migrated Geom.Point to Math.Vector2 return value
+    public getCentroidBottomSide(): Phaser.Math.Vector2 {
+        return new Phaser.Math.Vector2(this.spriteIdle?.getBottomCenter().x, this.spriteIdle?.getBottomCenter().y);
     }
 
-    public getCentroid(): Phaser.Geom.Point {
-        return new Phaser.Geom.Point(this.spriteIdle?.getBounds().centerX, (0) + ((this.spriteIdle?.getBounds()?.centerY) ? this.spriteIdle?.getBounds().centerY : 0));
+    // Migrated Geom.Point to Math.Vector2 return value
+    public getCentroid(): Phaser.Math.Vector2 {
+        return new Phaser.Math.Vector2(this.spriteIdle?.getBounds().centerX, (0) + ((this.spriteIdle?.getBounds()?.centerY) ? this.spriteIdle?.getBounds().centerY : 0));
     }
-
-
 
     public handleMines() {
         if (!this.spriteIdle) {
@@ -324,8 +293,7 @@ export class EnemyAntiHero {
         }
         const currentTime = this.scene.time.now;
 
-        if ((this.mineKey?.isDown) &&
-            (currentTime - this.lastMinePlaced > this.mineRate)) {
+        if ((this.mineKey?.isDown) && (currentTime - this.lastMinePlaced > this.mineRate)) {
             const centroid = this.getCentroidBottomSide();
             const x = centroid.x;
             const y = centroid.y;
@@ -335,8 +303,6 @@ export class EnemyAntiHero {
             this.soundPlayer.playMissileSound();
         }
     }
-
-
 
     public handleSwordAttacksSpecial() {
         if (!this.cursors || !this.spriteIdle || this.swingingSword === true) {
@@ -348,15 +314,12 @@ export class EnemyAntiHero {
 
             if (!this.swingingSwordSpecial) {
                 this.swingingSwordSpecial = true;
-
                 setTimeout(() => {
                     this.swingingSwordSpecial = false;
                 }, this.swordAttackRateSpecial);
             }
         }
-
     }
-
 
     public handleSwordAttacks() {
         if (!this.spriteIdle || this.swingingSwordSpecial === true) {
@@ -368,15 +331,12 @@ export class EnemyAntiHero {
 
             if (!this.swingingSword) {
                 this.swingingSword = true;
-
                 setTimeout(() => {
                     this.swingingSword = false;
                 }, this.swordAttackRateSpecial);
             }
         }
-
     }
-
 
     public handleBullets() {
         if (!this.spriteIdle) {
@@ -384,8 +344,7 @@ export class EnemyAntiHero {
         }
         const currentTime = this.scene.time.now;
 
-        if ((this.bulletKey?.isDown) &&
-            (currentTime - this.lastBullet > this.bulletRate)) {
+        if ((this.bulletKey?.isDown) && (currentTime - this.lastBullet > this.bulletRate)) {
             const angle: number = (this.spriteIdle.flipX) ? 180 : 0;
             const centroid = this.getCentroid();
 
@@ -396,19 +355,14 @@ export class EnemyAntiHero {
         }
     }
 
-    public getCenter(): Phaser.Geom.Point {
-        // Assuming the idle sprite is always defined and positioned correctly,
-        // even if it's not currently visible. Adjust if this assumption doesn't hold.
+    // Migrated Geom.Point to Math.Vector2 return value
+    public getCenter(): Phaser.Math.Vector2 {
         if (this.spriteIdle) {
             const centerX = this.spriteIdle.x + this.spriteIdle.displayWidth / 2;
             const centerY = this.spriteIdle.y + this.spriteIdle.displayHeight / 2;
-            return new Phaser.Geom.Point(centerX, centerY);
+            return new Phaser.Math.Vector2(centerX, centerY);
         } else {
-            // Fallback or default position if no sprite is available
-            return new Phaser.Geom.Point(0, 0);
+            return new Phaser.Math.Vector2(0, 0);
         }
     }
-
-
-
 }

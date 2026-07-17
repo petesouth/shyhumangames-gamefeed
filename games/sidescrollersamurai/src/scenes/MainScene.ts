@@ -1,5 +1,4 @@
-
-import Phaser, { Physics } from 'phaser';
+import * as Phaser from 'phaser';
 import gGameStore from '../store/store';
 import { MainSceneStartGameText } from './MainSceneStartGameText';
 import { Utils } from '../utils/utils';
@@ -7,10 +6,6 @@ import { SpriteHero } from '../gameobjects/SpriteHero';
 import { SoundPlayer } from '../gameobjects/SoundPlayer';
 import { EnemyAntiHero } from '../gameobjects/EnemyAntiHero';
 import { js as EasyStarJs } from 'easystarjs';
-
-
-
-
 
 export class MainScene extends Phaser.Scene {
 
@@ -31,25 +26,20 @@ export class MainScene extends Phaser.Scene {
     protected groundGroup?: Phaser.Physics.Arcade.StaticGroup;
     protected groundGroupBody?: Phaser.Physics.Arcade.Sprite;
     protected floatingPlatformBodies: Phaser.Physics.Arcade.Image[] = [];
-    protected colliders: Physics.Arcade.Collider[] = [];
+    protected colliders: Phaser.Physics.Arcade.Collider[] = [];
     protected soundPlayer!: SoundPlayer;
     protected distanceLeft: number = 0;
     protected distanceRight: number = 0;
     protected easyJs: EasyStarJs = new EasyStarJs();
 
     private readonly mountainRangeDepth = -10;
-
     private readonly skySpriteDepth = -11;
-
     private readonly bricksSpriteDepth = 1;
-
     private readonly singleTilesPlatformLayerDepth = 10;
 
     constructor() {
         super('MainScene');
     }
-
-  
 
     create() {
         const screenWidth = window.innerWidth;
@@ -66,25 +56,17 @@ export class MainScene extends Phaser.Scene {
 
         this.mainSceneStartGameText.createStartGameText();
 
-
         setTimeout(() => {
             this.mainSceneStartGameText.hideLevelInstructionsText();
         }, 20000);
-        // Create Debug Graphics if needed to visualize the bodies
-        // this.physics.world.createDebugGraphic();
 
         this.createOneSinglePlatform(screenWidth, screenHeight);
-
     }
 
     update() {
-
         if (!this.mountainRangeSprite || !this.cloudsSprite || !this.skySprite || !this.bricksTileSprite) {
             return;
         }
-
-        const w = window.innerWidth;
-        const h = window.innerHeight;
 
         this.mainSceneStartGameText.displayGameText();
         const distanceIncrement = 4;
@@ -105,8 +87,6 @@ export class MainScene extends Phaser.Scene {
 
             this.enemyAntiHero?.drawMines(distanceIncrement);
             this.enemyAntiHero?.drawBullets(distanceIncrement);
-
-
 
         } else if (this.cursorKeys?.right.isDown) {
             this.bricksTileSprite.tilePositionX += distanceIncrement;
@@ -137,13 +117,10 @@ export class MainScene extends Phaser.Scene {
 
         this.spriteHero?.drawHeroSprite();
         this.enemyAntiHero?.drawHeroSprite();
-
     }
 
     removeGroupBodies() {
-
         if (this.groundGroupBody) {
-
             this.groundGroup?.remove(this.groundGroupBody);
 
             this.colliders.forEach((collider) => {
@@ -155,26 +132,18 @@ export class MainScene extends Phaser.Scene {
     }
 
     public handleWindowResize(screenWidth: number, screenHeight: number) {
-
         if (!this.cursorKeys) return;
 
         this.repositionResizeTheGameAndWorld(screenWidth, screenHeight);
-
         this.resizeCreateUpdateMountainsSkyClouds(screenWidth, screenHeight);
-
-        this.resizeCrateUpdateTheGround(screenWidth, screenHeight); // Refresh the physics body to apply the size change
-
+        this.resizeCrateUpdateTheGround(screenWidth, screenHeight);
         this.resizeCreateUpdateCharacters(screenWidth);
-
 
         this.generatePlatforms();
         this.repositionPlatforms(screenWidth, screenHeight);
 
         this.mainSceneStartGameText.repositionStartGameText(screenWidth);
-
-
     }
-
 
     protected repositionResizeTheGameAndWorld(screenWidth: number, screenHeight: number) {
         const ThirtyPercent = screenWidth * .3;
@@ -203,24 +172,19 @@ export class MainScene extends Phaser.Scene {
         this.mountainRangeSprite.update();
         this.mountainRangeSprite.setVisible(true);
 
-
         this.skySprite = this.add.tileSprite(0, 0, screenWidth, 320, "sky");
         this.skySprite.setDepth(this.skySpriteDepth);
-        Utils.resizeImateToRatio(this.skySprite, screenWidth, screenHeight * .8);
-
+        Utils.resizeImageToRatio(this.skySprite, screenWidth, screenHeight * .8);
 
         this.cloudsSprite = this.add.tileSprite(0, 0, screenWidth, 320, "clouds");
         this.cloudsSprite.setDepth(this.skySpriteDepth);
-        Utils.resizeImateToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
-
-
+        Utils.resizeImageToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
     }
 
     protected resizeCrateUpdateTheGround(screenWidth: number, screenHeight: number) {
         if (this.bricksTileSprite) {
             this.bricksTileSprite.destroy();
         }
-
 
         this.bricksTileSprite = this.add.tileSprite(0, 0, screenWidth, MainScene.GROUND_HEIGHT, "bricks2");
         this.bricksTileSprite.setDepth(this.bricksSpriteDepth);
@@ -234,16 +198,13 @@ export class MainScene extends Phaser.Scene {
         if (!this.groundGroup || !this.groundGroupBody) {
             this.groundGroup = this.physics.add.staticGroup();
             this.groundGroupBody = this.groundGroup.create(0, screenHeight) as Phaser.Physics.Arcade.Sprite;
-
         }
-
 
         this.groundGroupBody.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
         this.groundGroupBody.setPosition(screenWidth / 2, screenHeight);
         this.groundGroupBody.setVisible(false);
         this.groundGroupBody.refreshBody();
         this.bricksTileSprite.tilePositionX = 0;
-
     }
 
     protected resizeCreateUpdateCharacters(screenWidth: number) {
@@ -260,7 +221,6 @@ export class MainScene extends Phaser.Scene {
                 this.colliders.push(this.physics.add.collider(sprite, this.groundGroup));
             }
         });
-
 
         if (!this.enemyAntiHero) {
             this.enemyAntiHero = new EnemyAntiHero(this, this.cursorKeys, this.soundPlayer);
@@ -296,7 +256,6 @@ export class MainScene extends Phaser.Scene {
         const displayPlatformHeight = MainScene.GROUND_HEIGHT / 2;
         let isCreated: boolean = (this.floatingPlatformBodies && this.floatingPlatformBodies.length > 0);
 
-
         for (let i = 0;
             ((isCreated === false && i < 300) ||
                 (isCreated === true && i < this.floatingPlatformBodies.length)); i++) {
@@ -305,8 +264,9 @@ export class MainScene extends Phaser.Scene {
             const randomYPos = Phaser.Math.Between(minYPosition, maxYPosition);
             let randomXPos = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
 
-            // Create platform, set its position, and anchor point to the center
-            let platform = (isCreated) ? this.floatingPlatformBodies[i] : this.groundGroup.create(randomXPos, randomYPos, "bricks2") as Phaser.Physics.Arcade.Sprite;
+            let platform = (isCreated) 
+                ? this.floatingPlatformBodies[i] 
+                : this.groundGroup.create(randomXPos, randomYPos, "bricks2") as Phaser.Physics.Arcade.Sprite;
 
             platform.setDisplaySize(randomWidth, displayPlatformHeight);
             platform.setPosition(randomXPos, randomYPos);
@@ -316,14 +276,12 @@ export class MainScene extends Phaser.Scene {
             platform.refreshBody();
 
             if (isCreated === false) {
-                this.floatingPlatformBodies.push(platform);
+                this.floatingPlatformBodies.push(platform as Phaser.Physics.Arcade.Image);
             }
 
-            // Update for next platform
             lastPlatformEndX = platform.x + platform.displayWidth / 2;
         }
 
-        // Collider for the hero sprite with the platform
         this.spriteHero?.applyToAllSprites((sprite) => {
             if (this.groundGroup) {
                 this.physics.add.collider(sprite, this.groundGroup);
@@ -333,28 +291,10 @@ export class MainScene extends Phaser.Scene {
                 });
             }
         });
-
-        
-
     }
 
-
-
-    // New method to reposition platforms
-    // protected repositionPlatforms(screenWidth: number, screenHeight: number) {
-    //     // Example logic - you might need to adjust this based on your game's design
-    //     const horizontalGapMin = 100;
-    //     let lastPlatformEndX = 0;
-
-    //     this.floatingPlatformBodies.forEach((platform, index) => {
-    //         let randomXPos = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
-    //         platform.x = randomXPos;
-    //         lastPlatformEndX = platform.x + platform.displayWidth / 2;
-    //     });
-    // }
-
     repositionPlatforms(screenWidth: number, screenHeight: number): void {
-        if( !this.spriteHero || ! this.enemyAntiHero ) {
+        if (!this.spriteHero || !this.enemyAntiHero) {
             return;
         }
         
@@ -362,7 +302,7 @@ export class MainScene extends Phaser.Scene {
         let lastPlatformEndX: number = 0;
     
         let levelGrid: number[][] = Array.from({ length: screenHeight }, () => 
-                                  Array.from({ length: screenWidth }, () => 0));
+                                      Array.from({ length: screenWidth }, () => 0));
     
         this.floatingPlatformBodies.forEach((platform: Phaser.Physics.Arcade.Image) => {
             let randomXPos: number = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
@@ -380,13 +320,11 @@ export class MainScene extends Phaser.Scene {
             }
         });
     
-        // Now, apply the updated levelGrid for pathfinding
         this.easyJs.setGrid(levelGrid);
         this.easyJs.setAcceptableTiles([1]);
     
-        // Assuming we have positions for SpriteHero and EnemyAntiHero
-        const heroPosition = this.spriteHero.getCenter(); // Or however you get the hero's position
-        const enemyPosition = this.enemyAntiHero.getCenter(); // Or the enemy's position
+        const heroPosition = this.spriteHero.getCenter();
+        const enemyPosition = this.enemyAntiHero.getCenter();
     
         const heroGridPos = {
             x: Math.floor(heroPosition.x / screenWidth * levelGrid[0].length),
@@ -400,25 +338,19 @@ export class MainScene extends Phaser.Scene {
     
         this.easyJs.findPath(enemyGridPos.x, enemyGridPos.y, heroGridPos.x, heroGridPos.y, path => {
             if (path !== null && path.length > 0) {
-                // Here, you can move the enemy along the path towards the hero
-                // This might involve setting a movement vector for the enemy or directly manipulating its position
-                // For example:
                 console.log("Path found", path);
-                // Implement logic to follow path...
             } else {
                 console.log("No path found");
             }
         });
-        this.easyJs.calculate(); // Trigger the pathfinding calculation
+        this.easyJs.calculate();
     }
     
-
     createOneSinglePlatform(screenWidth: number, screenHeight: number) {
         const map = this.make.tilemap({ key: 'tilemap' });
         const tileset = map.addTilesetImage('tilesetImage');
     
         if (tileset != null) {
-            // Adjust these values as needed to position your platform
             const platformX = screenWidth / 2;
             const platformY = screenHeight / 2;
     
@@ -431,9 +363,4 @@ export class MainScene extends Phaser.Scene {
             }
         }
     }
-    
-
-
-
-
 }
