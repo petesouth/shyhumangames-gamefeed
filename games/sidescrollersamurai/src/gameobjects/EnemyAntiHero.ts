@@ -161,15 +161,20 @@ export class EnemyAntiHero {
         target?: SpriteHero,
         platforms?: (Phaser.Physics.Arcade.Sprite | Phaser.Physics.Arcade.Image)[]
     ) {
+        if (!target || !platforms) {
+            this.drawMines();
+            this.drawBullets();
+            return;
+        }
+
         let decision: AIDecision | null = null;
-        const currentHero = target || this.heroTarget;
         const activeSprite = this.getActiveSprite();
 
-        if (currentHero && platforms && activeSprite && activeSprite.active) {
+        if (activeSprite && activeSprite.active) {
             decision = this.aiBrain.evaluate(
                 this.scene.time.now,
                 activeSprite,
-                currentHero,
+                target,
                 platforms
             );
         }
@@ -182,7 +187,7 @@ export class EnemyAntiHero {
 
     private handleSpriteMovement(decision: AIDecision | null) {
         const activeSprite = this.getActiveSprite();
-        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true) {
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.swingingSword === true) {
             return;
         }
 
@@ -196,50 +201,38 @@ export class EnemyAntiHero {
         const currentHero = this.heroTarget;
         const heroActive = currentHero ? currentHero.getActiveSprite() : null;
 
-        // -------------------------------------------------------------
-        // SPACING & PURSUIT CALCULATIONS
-        // -------------------------------------------------------------
         let moveDir = 0;
 
         if (this.isJumpLocked) {
             moveDir = this.jumpDirectionX;
+        } else if (decision && decision.isNavigationOverride) {
+            moveDir = decision.moveDirection;
         } else if (heroActive && activeSprite) {
             const enemyX = activeSprite.x;
             const heroX = heroActive.x;
             const dx = heroX - enemyX;
-            const dy = heroActive.y - activeSprite.y;
             const absDx = Math.abs(dx);
+            const dy = heroActive.y - activeSprite.y;
             const absDy = Math.abs(dy);
 
-            // Desired attack distance offset (60px keeps him at arm's length)
-            const targetSpacing = 60;
+            const attackStandoffMin = 55;
+            const attackStandoffMax = 60;
 
             if (absDy > 40) {
-                // On different platform levels -> pursue horizontally
                 moveDir = dx > 0 ? 1 : -1;
             } else {
-                // Same level -> target being 60px to left or right of hero
-                if (dx > 0) {
-                    // Hero is to the RIGHT. Target standing spot is (heroX - 60)
-                    const distToTargetSpot = (heroX - targetSpacing) - enemyX;
-                    if (distToTargetSpot > 5) moveDir = 1;
-                    else if (distToTargetSpot < -5) moveDir = -1;
-                    else moveDir = 0;
+                if (absDx <= attackStandoffMin) {
+                    moveDir = 0;
+                } else if (absDx > attackStandoffMax) {
+                    moveDir = dx > 0 ? 1 : -1;
                 } else {
-                    // Hero is to the LEFT. Target standing spot is (heroX + 60)
-                    const distToTargetSpot = (heroX + targetSpacing) - enemyX;
-                    if (distToTargetSpot < -5) moveDir = -1;
-                    else if (distToTargetSpot > 5) moveDir = 1;
-                    else moveDir = 0;
+                    moveDir = activeSprite.body.velocity.x !== 0 ? (dx > 0 ? 1 : -1) : 0;
                 }
             }
         } else if (decision) {
             moveDir = decision.moveDirection;
         }
 
-        // -------------------------------------------------------------
-        // APPLY VELOCITY & ANIMATIONS
-        // -------------------------------------------------------------
         if (moveDir === -1) {
             this.applyToAllSprites(sprite => sprite.setVelocityX(-speed));
             if (isGrounded) {
@@ -263,9 +256,6 @@ export class EnemyAntiHero {
             }
         }
 
-        // -------------------------------------------------------------
-        // INITIATE JUMP
-        // -------------------------------------------------------------
         if (decision?.shouldJump && isGrounded && !this.isJumpLocked) {
             this.isJumpLocked = true;
             this.jumpDirectionX = moveDir !== 0 ? moveDir : (heroActive && heroActive.x < activeSprite.x ? -1 : 1);
@@ -274,9 +264,6 @@ export class EnemyAntiHero {
             this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
         }
 
-        // -------------------------------------------------------------
-        // GROUNDED FACING DIRECTION
-        // -------------------------------------------------------------
         if (isGrounded && heroActive && activeSprite) {
             const dx = heroActive.x - activeSprite.x;
             this.applyToAllSprites(sprite => sprite.setFlipX(dx < 0));
@@ -290,6 +277,7 @@ export class EnemyAntiHero {
 
         if (decision.shouldSpecial && !this.swingingSwordSpecial && !this.swingingSword) {
             this.showSpriteFromState(SpriteHeroAnimationState.SPECIAL_ATTACK);
+            this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             this.swingingSwordSpecial = true;
             setTimeout(() => {
                 this.swingingSwordSpecial = false;
@@ -299,6 +287,7 @@ export class EnemyAntiHero {
 
         if (decision.shouldMelee && !this.swingingSword && !this.swingingSwordSpecial) {
             this.showSpriteFromState(SpriteHeroAnimationState.ATTACK);
+            this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             this.swingingSword = true;
             setTimeout(() => {
                 this.swingingSword = false;

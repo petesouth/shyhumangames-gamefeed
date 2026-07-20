@@ -9,6 +9,7 @@ export interface AIDecision {
     shouldSpecial: boolean;
     shouldMine: boolean;
     shouldBullet: boolean;
+    isNavigationOverride?: boolean; // When true, overrides combat spacing (for detours & idling)
 }
 
 export class EnemySensorSystem {
@@ -18,6 +19,12 @@ export class EnemySensorSystem {
     private wallSensor: Phaser.Geom.Rectangle = new Phaser.Geom.Rectangle();
     private gapSensor: Phaser.Geom.Rectangle = new Phaser.Geom.Rectangle();
     private currentDecision: AIDecision = this.getEmptyDecision();
+
+    // -------------------------------------------------------------
+    // STRICT ABOVE/BELOW IDLE WAIT TIMER
+    // -------------------------------------------------------------
+    private idleUntilTime: number = 0;
+    private nextIdleAllowedTime: number = 0;
 
     constructor(config: EnemyAIConfig) {
         this.config = config;
@@ -46,6 +53,7 @@ export class EnemySensorSystem {
         if (!enemyBody || !heroBody) return decision;
 
         const isGrounded = enemyBody.touching.down || enemyBody.blocked.down;
+        const isAirborne = !isGrounded; // True when jumping or falling through the air
         
         const dx = heroBody.center.x - enemyBody.center.x;
         const dy = heroBody.center.y - enemyBody.center.y;
@@ -58,11 +66,36 @@ export class EnemySensorSystem {
         const isPlayerAbove = dy < -this.config.jumpUpThreshold;
 
         // -------------------------------------------------------------
-        // 1. COMBAT ACTIONS (Triggers when staged near melee range)
+        // 0. STRICT ABOVE/BELOW IDLE CHECK (3.5 - 4.5 Seconds)
+        // -------------------------------------------------------------
+        const isDirectlyAboveOrBelow = (isPlayerAbove || isPlayerBelow) && absDx < 90;
+
+        if (isDirectlyAboveOrBelow && isGrounded) {
+            if (currentTime < this.idleUntilTime) {
+                decision.moveDirection = 0;
+                decision.shouldJump = false;
+                decision.isNavigationOverride = true;
+                this.currentDecision = decision;
+                return decision;
+            } else if (currentTime > this.nextIdleAllowedTime) {
+                const idleDuration = Phaser.Math.Between(3500, 4500);
+                this.idleUntilTime = currentTime + idleDuration;
+                this.nextIdleAllowedTime = currentTime + idleDuration + 6000;
+                
+                decision.moveDirection = 0;
+                decision.shouldJump = false;
+                decision.isNavigationOverride = true;
+                this.currentDecision = decision;
+                return decision;
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 1. COMBAT ACTIONS (Ground & Aerial Firepower)
         // -------------------------------------------------------------
         const roll = Math.random();
 
-        if (absDx <= 75 && absDy < 60) {
+        if (absDx <= 65 && absDy < 60 && isGrounded) {
             if (roll <= this.config.aggression) {
                 if (Math.random() > 0.4) {
                     decision.shouldMelee = true;
@@ -70,68 +103,77 @@ export class EnemySensorSystem {
                     decision.shouldSpecial = true;
                 }
             }
-        } else if (absDx > 75 && absDy < 160) {
-            const distanceFactor = Math.min(absDx / this.config.rangedRangeMax, 1.0);
-            const laserChance = this.config.aggression * (0.5 + distanceFactor * 0.5);
+        } 
+        
+        // Ranged & AERIAL ATTACKS: Shoot bullets and drop mines freely while jumping/flying!
+        if (absDx > 55 || isAirborne) {
+            const distanceFactor = Math.min(absDx / Math.max(this.config.rangedRangeMax, 1), 1.0);
+            const laserChance = this.config.aggression * (0.6 + distanceFactor * 0.4);
 
-            if (roll <= laserChance) {
+            // High rate of fire when airborne or in range
+            if (roll <= laserChance || isAirborne) {
                 decision.shouldBullet = true;
             }
 
-            if (isGrounded && Math.random() <= this.config.mineDropChance) {
+            // Drop landmines while jumping through the air or moving across platforms
+            const mineProbability = isAirborne ? 0.75 : this.config.mineDropChance;
+            if (Math.random() <= mineProbability) {
                 decision.shouldMine = true;
             }
         }
 
         // -------------------------------------------------------------
-        // 2. GRID PLATFORM PATHFINDING (LEDGE SEEKING)
+        // 2. CEILING DETOUR PATHFINDING (Player Above / Enemy Underneath)
         // -------------------------------------------------------------
         let targetXGoal: number | null = null;
         let isDirectJumpBlocked = false;
 
         if (isPlayerAbove && isGrounded && platforms && platforms.length > 0) {
-            let blockingPlatformBounds: Phaser.Geom.Rectangle | null = null;
-
             for (let i = 0; i < platforms.length; i++) {
                 const platform = platforms[i];
                 if (!platform || !platform.active) continue;
                 const bounds = platform.getBounds();
 
-                const isPlatformBetweenY = bounds.bottom < enemyBody.top && bounds.top > heroBody.bottom - 40;
-                const overlapsEnemyX = enemyBody.center.x >= bounds.left - 10 && enemyBody.center.x <= bounds.right + 10;
+                const isOverhead = bounds.bottom <= enemyBody.top + 10 && bounds.top >= heroBody.bottom - 40;
+                const overlapsEnemyX = enemyBody.center.x >= bounds.left - 20 && enemyBody.center.x <= bounds.right + 20;
 
-                if (isPlatformBetweenY && overlapsEnemyX) {
+                if (isOverhead && overlapsEnemyX) {
                     isDirectJumpBlocked = true;
-                    blockingPlatformBounds = bounds;
+                    
+                    const distToLeftEdge = Math.abs(enemyBody.center.x - bounds.left);
+                    const distToRightEdge = Math.abs(enemyBody.center.x - bounds.right);
+
+                    const margin = enemyBody.width + 15;
+                    if (distToRightEdge <= distToLeftEdge) {
+                        targetXGoal = bounds.right + margin;
+                    } else {
+                        targetXGoal = bounds.left - margin;
+                    }
                     break;
-                }
-            }
-
-            if (isDirectJumpBlocked && blockingPlatformBounds) {
-                const distToLeftEdge = Math.abs(enemyBody.center.x - blockingPlatformBounds.left);
-                const distToRightEdge = Math.abs(enemyBody.center.x - blockingPlatformBounds.right);
-
-                if (distToLeftEdge < distToRightEdge) {
-                    targetXGoal = blockingPlatformBounds.left - (enemyBody.width + 15);
-                } else {
-                    targetXGoal = blockingPlatformBounds.right + (enemyBody.width + 15);
                 }
             }
         }
 
         // -------------------------------------------------------------
-        // 3. PURSUIT DIRECTION & JUMP INTENT
+        // 3. STRATEGIC NAVIGATION OVERRIDES
         // -------------------------------------------------------------
         if (isDirectJumpBlocked && targetXGoal !== null) {
             const distToGoal = targetXGoal - enemyBody.center.x;
             
-            if (Math.abs(distToGoal) > 10) {
+            if (Math.abs(distToGoal) > 12) {
                 decision.moveDirection = distToGoal > 0 ? 1 : -1;
+                decision.shouldJump = false;
+                decision.isNavigationOverride = true;
             } else {
-                decision.moveDirection = facingRight ? 1 : -1;
+                decision.moveDirection = dx > 0 ? 1 : -1;
                 decision.shouldJump = true;
+                decision.isNavigationOverride = true;
             }
-        } else if (absDx > meleeRange || isPlayerBelow || isPlayerAbove) {
+        } else if (isPlayerBelow) {
+            decision.moveDirection = dx > 0 ? 1 : -1;
+            decision.shouldJump = false;
+            decision.isNavigationOverride = true;
+        } else if (absDx > meleeRange || isPlayerAbove) {
             decision.moveDirection = facingRight ? 1 : -1;
         } else {
             decision.moveDirection = 0;
@@ -140,7 +182,7 @@ export class EnemySensorSystem {
         // -------------------------------------------------------------
         // 4. ENVIRONMENT NAVIGATION (GAP & WALL JUMPS)
         // -------------------------------------------------------------
-        if (isGrounded && !decision.shouldJump && platforms) {
+        if (isGrounded && !decision.shouldJump && !isPlayerBelow && platforms) {
             this.wallSensor.setTo(
                 facingRight ? enemyBody.right : enemyBody.left - 20,
                 enemyBody.top + 10,
@@ -174,9 +216,7 @@ export class EnemySensorSystem {
             const gapAhead = !isGroundAhead && decision.moveDirection !== 0;
             const wallAhead = isWallAhead && decision.moveDirection !== 0;
 
-            if (isPlayerBelow) {
-                decision.shouldJump = false;
-            } else if ((isPlayerAbove && !isDirectJumpBlocked && absDx < this.config.maxJumpReachX) || (gapAhead && !isPlayerBelow) || wallAhead) {
+            if ((isPlayerAbove && !isDirectJumpBlocked && absDx < this.config.maxJumpReachX) || gapAhead || wallAhead) {
                 if (this.config.jumpVelocityY !== 0) {
                     decision.shouldJump = true;
                 }
@@ -194,7 +234,8 @@ export class EnemySensorSystem {
             shouldMelee: false,
             shouldSpecial: false,
             shouldMine: false,
-            shouldBullet: false
+            shouldBullet: false,
+            isNavigationOverride: false
         };
     }
 }
