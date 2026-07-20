@@ -58,27 +58,24 @@ export class EnemyAntiHero {
         this.aiBrain.setProfile(newProfile);
     }
 
-    public getActiveSprite(): Phaser.Physics.Arcade.Sprite {
+    public getActiveSprite(): Phaser.Physics.Arcade.Sprite | null {
         switch (this.animationState) {
             case SpriteHeroAnimationState.RUN:
-                return this.spriteRun || this.spriteIdle!;
+                return this.spriteRun ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.JUMPING:
-                return this.spriteJump || this.spriteIdle!;
+                return this.spriteJump ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.ATTACK:
-                return this.spriteAttack || this.spriteIdle!;
+                return this.spriteAttack ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.SPECIAL_ATTACK:
-                return this.spriteSpecialAttack || this.spriteIdle!;
+                return this.spriteSpecialAttack ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.IDLE:
             default:
-                return this.spriteIdle!;
+                return this.spriteIdle ?? null;
         }
     }
 
-    applyToAllSprites(applyHandler: (sprite: Phaser.Physics.Arcade.Sprite) => void) {
-        if (!this.spriteIdle || !this.spriteJump || !this.spriteRun || !this.spriteAttack || !this.spriteSpecialAttack) {
-            return;
-        }
-        const sprites: Phaser.Physics.Arcade.Sprite[] = [
+    public applyToAllSprites(applyHandler: (sprite: Phaser.Physics.Arcade.Sprite) => void): void {
+        const sprites = [
             this.spriteIdle, 
             this.spriteJump, 
             this.spriteRun, 
@@ -86,11 +83,13 @@ export class EnemyAntiHero {
             this.spriteSpecialAttack
         ];
         sprites.forEach((sprite) => {
-            applyHandler(sprite);
+            if (sprite) {
+                applyHandler(sprite);
+            }
         });
     }
 
-    showSpriteFromState(animationState: SpriteHeroAnimationState) {
+    public showSpriteFromState(animationState: SpriteHeroAnimationState): void {
         if (this.animationState === animationState) return;
 
         const activeBefore = this.getActiveSprite();
@@ -157,10 +156,10 @@ export class EnemyAntiHero {
         }
     }
 
-    drawHeroSprite(
+    public drawHeroSprite(
         target?: SpriteHero,
         platforms?: (Phaser.Physics.Arcade.Sprite | Phaser.Physics.Arcade.Image)[]
-    ) {
+    ): void {
         if (!target || !platforms) {
             this.drawMines();
             this.drawBullets();
@@ -170,7 +169,7 @@ export class EnemyAntiHero {
         let decision: AIDecision | null = null;
         const activeSprite = this.getActiveSprite();
 
-        if (activeSprite && activeSprite.active) {
+        if (activeSprite && activeSprite.active && this.scene && this.scene.time) {
             decision = this.aiBrain.evaluate(
                 this.scene.time.now,
                 activeSprite,
@@ -185,21 +184,27 @@ export class EnemyAntiHero {
         this.drawBullets();
     }
 
-    private handleSpriteMovement(decision: AIDecision | null) {
+    private handleSpriteMovement(decision: AIDecision | null): void {
         const activeSprite = this.getActiveSprite();
         if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.swingingSword === true) {
             return;
         }
 
-        const isGrounded = activeSprite.body.touching.down || activeSprite.body.blocked.down;
-        const speed = 135;
+        const activeBody = activeSprite.body as Phaser.Physics.Arcade.Body;
+        if (!activeBody) return;
+
+        const isGrounded = activeBody.touching.down || activeBody.blocked.down;
+        const speed = 135; 
+
+        const currentHero = this.heroTarget;
+        const heroActive = currentHero ? currentHero.getActiveSprite() : null;
+        const heroBody = heroActive ? (heroActive.body as Phaser.Physics.Arcade.Body) : null;
+        const heroVelX = heroBody ? heroBody.velocity.x : 0;
+        const heroIsMoving = heroVelX !== 0;
 
         if (isGrounded && this.isJumpLocked) {
             this.isJumpLocked = false;
         }
-
-        const currentHero = this.heroTarget;
-        const heroActive = currentHero ? currentHero.getActiveSprite() : null;
 
         let moveDir = 0;
 
@@ -215,18 +220,25 @@ export class EnemyAntiHero {
             const dy = heroActive.y - activeSprite.y;
             const absDy = Math.abs(dy);
 
+            const antiStackThreshold = 35;
             const attackStandoffMin = 55;
             const attackStandoffMax = 60;
+
+            const heroMovingTowardOrAway = heroIsMoving && (
+                (dx > 0 && heroVelX > 0) || (dx < 0 && heroVelX < 0)
+            );
 
             if (absDy > 40) {
                 moveDir = dx > 0 ? 1 : -1;
             } else {
-                if (absDx <= attackStandoffMin) {
+                if (absDx <= antiStackThreshold) {
+                    moveDir = dx > 0 ? -1 : 1;
+                } else if (absDx <= attackStandoffMin && !heroMovingTowardOrAway) {
                     moveDir = 0;
-                } else if (absDx > attackStandoffMax) {
+                } else if (absDx > attackStandoffMax || heroMovingTowardOrAway) {
                     moveDir = dx > 0 ? 1 : -1;
                 } else {
-                    moveDir = activeSprite.body.velocity.x !== 0 ? (dx > 0 ? 1 : -1) : 0;
+                    moveDir = activeBody.velocity.x !== 0 ? (dx > 0 ? 1 : -1) : 0;
                 }
             }
         } else if (decision) {
@@ -270,14 +282,13 @@ export class EnemyAntiHero {
         }
     }
 
-    private handleCombatActions(decision: AIDecision | null) {
-        if (!decision || !this.spriteIdle) return;
+    private handleCombatActions(decision: AIDecision | null): void {
+        if (!decision || !this.spriteIdle || !this.scene || !this.scene.time) return;
 
         const currentTime = this.scene.time.now;
 
         if (decision.shouldSpecial && !this.swingingSwordSpecial && !this.swingingSword) {
             this.showSpriteFromState(SpriteHeroAnimationState.SPECIAL_ATTACK);
-            this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             this.swingingSwordSpecial = true;
             setTimeout(() => {
                 this.swingingSwordSpecial = false;
@@ -287,7 +298,6 @@ export class EnemyAntiHero {
 
         if (decision.shouldMelee && !this.swingingSword && !this.swingingSwordSpecial) {
             this.showSpriteFromState(SpriteHeroAnimationState.ATTACK);
-            this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             this.swingingSword = true;
             setTimeout(() => {
                 this.swingingSword = false;
@@ -300,49 +310,52 @@ export class EnemyAntiHero {
             const mine = new Mine(this.scene, centroid.x, centroid.y - 20);
             this.mines.push(mine);
             this.lastMinePlaced = currentTime;
-            this.soundPlayer.playMissileSound();
+            this.soundPlayer?.playMissileSound();
         }
 
         if (decision.shouldBullet && (currentTime - this.lastBullet > this.bulletRate)) {
             const active = this.getActiveSprite();
-            const angle: number = active.flipX ? 180 : 0;
-            const centroid = this.getCentroid();
-            const bullet = new Bullet(this.scene, centroid.x, centroid.y, angle);
-            this.bullets.push(bullet);
-            this.soundPlayer.playBulletSound();
-            this.lastBullet = currentTime;
+            if (active) {
+                const angle: number = active.flipX ? 180 : 0;
+                const centroid = this.getCentroid();
+                const bullet = new Bullet(this.scene, centroid.x, centroid.y, angle);
+                this.bullets.push(bullet);
+                this.soundPlayer?.playBulletSound();
+                this.lastBullet = currentTime;
+            }
         }
     }
 
-    public drawMines(x?: number) {
+    public drawMines(x?: number): void {
         const minesLeft: Mine[] = [];
         this.mines.forEach((mine) => {
-            if (mine.state !== BaseExplodableState.DESTROYED) {
+            if (mine && mine.state !== BaseExplodableState.DESTROYED) {
                 minesLeft.push(mine);
             }
-            if (x !== undefined) {
+            if (x !== undefined && mine) {
                 mine.incrementX(x);
             }
-            mine.render();
+            mine?.render();
         });
         this.mines = minesLeft;
     }
 
-    public drawBullets(x?: number) {
+    public drawBullets(x?: number): void {
         const bulletsLeft: Bullet[] = [];
         this.bullets.forEach((bullet) => {
-            if (bullet.state !== BaseExplodableState.DESTROYED) {
+            if (bullet && bullet.state !== BaseExplodableState.DESTROYED) {
                 bulletsLeft.push(bullet);
             }
-            if (x !== undefined) {
+            if (x !== undefined && bullet) {
                 bullet.incrementX(x);
             }
-            bullet.render();
+            bullet?.render();
         });
         this.bullets = bulletsLeft;
     }
 
-    protected loadAnimationConfiguration() {
+    protected loadAnimationConfiguration(): void {
+        if (!this.scene || !this.scene.anims) return;
         this.scene.anims.create({
             key: 'enemyrun',
             frames: this.scene.anims.generateFrameNames('enemyrun', {
@@ -400,15 +413,17 @@ export class EnemyAntiHero {
         });
     }
 
-    public getStaticXPosition() {
-        return (this.scene.scale.width / 4);
+    public getStaticXPosition(): number {
+        return this.scene && this.scene.scale ? (this.scene.scale.width / 4) : 0;
     }
 
-    public createHeroSprite() {
+    public createHeroSprite(): void {
         this.loadAnimationConfiguration();
 
-        const xPos = this.scene.scale.width / 2;
+        const xPos = this.scene && this.scene.scale ? (this.scene.scale.width / 2) : 0;
         const yPos = 0;
+
+        if (!this.scene || !this.scene.physics) return;
 
         this.spriteRun = this.scene.physics.add.sprite(xPos, yPos, 'enemyrun');
         this.spriteJump = this.scene.physics.add.sprite(xPos, yPos, 'enemyjump');
@@ -426,7 +441,7 @@ export class EnemyAntiHero {
         });
     }
 
-    public resizeEvent(x: number, y: number) {
+    public resizeEvent(x: number, y: number): void {
         this.applyToAllSprites((sprite) => {
             sprite.setPosition(x, y);
             sprite.setDepth(10);
@@ -439,14 +454,17 @@ export class EnemyAntiHero {
 
     public getCentroidBottomSide(): Phaser.Math.Vector2 {
         const active = this.getActiveSprite();
+        if (!active) return new Phaser.Math.Vector2(0, 0);
         return new Phaser.Math.Vector2(active.getBottomCenter().x, active.getBottomCenter().y);
     }
 
     public getCentroid(): Phaser.Math.Vector2 {
         const active = this.getActiveSprite();
+        if (!active) return new Phaser.Math.Vector2(0, 0);
+        const bounds = active.getBounds();
         return new Phaser.Math.Vector2(
-            active.getBounds().centerX, 
-            (active.getBounds()?.centerY) ? active.getBounds().centerY : 0
+            bounds.centerX, 
+            bounds.centerY ? bounds.centerY : 0
         );
     }
 
