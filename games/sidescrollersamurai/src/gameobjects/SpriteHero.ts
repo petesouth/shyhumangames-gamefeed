@@ -52,17 +52,48 @@ export class SpriteHero {
         this.bulletKey = this.scene.input?.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     }
 
+    public getActiveSprite(): Phaser.Physics.Arcade.Sprite {
+        switch (this.animationState) {
+            case SpriteHeroAnimationState.RUN:
+                return this.spriteRun || this.spriteIdle!;
+            case SpriteHeroAnimationState.JUMPING:
+                return this.spriteJump || this.spriteIdle!;
+            case SpriteHeroAnimationState.ATTACK:
+                return this.spriteAttack || this.spriteIdle!;
+            case SpriteHeroAnimationState.SPECIAL_ATTACK:
+                return this.spriteSpecialAttack || this.spriteIdle!;
+            case SpriteHeroAnimationState.IDLE:
+            default:
+                return this.spriteIdle!;
+        }
+    }
+
     applyToAllSprites(applyHandler: (sprite: Phaser.Physics.Arcade.Sprite) => void) {
         if (!this.spriteIdle || !this.spriteJump || !this.spriteRun || !this.spriteAttack || !this.spriteSpecialAttack) {
             return;
         }
-        const sprites: Phaser.Physics.Arcade.Sprite[] = [this.spriteIdle, this.spriteJump, this.spriteRun, this.spriteAttack, this.spriteSpecialAttack];
+        const sprites: Phaser.Physics.Arcade.Sprite[] = [
+            this.spriteIdle, 
+            this.spriteJump, 
+            this.spriteRun, 
+            this.spriteAttack, 
+            this.spriteSpecialAttack
+        ];
         sprites.forEach((sprite) => {
             applyHandler(sprite);
         });
     }
 
     showSpriteFromState(animationState: SpriteHeroAnimationState) {
+        const activeBefore = this.getActiveSprite();
+        if (activeBefore) {
+            const currentX = activeBefore.x;
+            const currentY = activeBefore.y;
+            this.applyToAllSprites((sprite) => {
+                sprite.setPosition(currentX, currentY);
+            });
+        }
+
         this.animationState = animationState;
         switch (this.animationState) {
             case SpriteHeroAnimationState.IDLE:
@@ -127,32 +158,35 @@ export class SpriteHero {
     }
 
     private handleSpriteMovement() {
-        if (!this.spriteIdle || !this.spriteIdle.body || this.swingingSwordSpecial === true) {
+        const activeSprite = this.getActiveSprite();
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true) {
             return;
         }
 
+        const isGrounded = activeSprite.body.touching.down || activeSprite.body.blocked.down;
+
         if (this.cursors.left.isDown) {
             this.applyToAllSprites(sprite => sprite.setFlipX(true));
-            if (this.spriteIdle.body.touching.down) {
+            if (isGrounded) {
                 this.showSpriteFromState(SpriteHeroAnimationState.RUN);
                 this.applyToAllSprites(sprite => sprite.setVelocityX(-160));
             }
         } else if (this.cursors.right.isDown) {
             this.applyToAllSprites(sprite => sprite.setFlipX(false));
-            if (this.spriteIdle.body.touching.down) {
+            if (isGrounded) {
                 this.showSpriteFromState(SpriteHeroAnimationState.RUN);
                 this.applyToAllSprites(sprite => sprite.setVelocityX(160));
             }
         } else {
             this.applyToAllSprites(sprite => sprite.setVelocityX(0));
-            if (this.spriteIdle.body.touching.down) {
+            if (isGrounded) {
                 this.showSpriteFromState(SpriteHeroAnimationState.IDLE);
             } else {
                 this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
             }
         }
 
-        if (this.cursors.up.isDown && (this.spriteIdle.body.touching.down)) {
+        if (this.cursors.up.isDown && isGrounded) {
             this.applyToAllSprites(sprite => sprite.setVelocityY(-480));
             this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
         }
@@ -165,7 +199,7 @@ export class SpriteHero {
                 minesLeft.push(mine);
             }
             if (x !== undefined) {
-                mine.incrementX(x); // Corrected spelling typo
+                mine.incrementX(x);
             }
             mine.render();
         });
@@ -283,17 +317,22 @@ export class SpriteHero {
         this.showSpriteFromState(this.animationState);
     }
 
-    // Migrated Point to Vector2 return values
     public getCentroidBottomSide(): Phaser.Math.Vector2 {
-        return new Phaser.Math.Vector2(this.spriteIdle?.getBottomCenter().x, this.spriteIdle?.getBottomCenter().y);
+        const active = this.getActiveSprite();
+        return new Phaser.Math.Vector2(active.getBottomCenter().x, active.getBottomCenter().y);
     }
 
     public getCentroid(): Phaser.Math.Vector2 {
-        return new Phaser.Math.Vector2(this.spriteIdle?.getBounds().centerX, (42) + ((this.spriteIdle?.getBounds()?.centerY) ? this.spriteIdle?.getBounds().centerY : 0));
+        const active = this.getActiveSprite();
+        return new Phaser.Math.Vector2(
+            active.getBounds().centerX, 
+            (42) + ((active.getBounds()?.centerY) ? active.getBounds().centerY : 0)
+        );
     }
 
     public handleMines() {
-        if (!this.spriteIdle) {
+        const active = this.getActiveSprite();
+        if (!active) {
             return;
         }
         const currentTime = this.scene.time.now;
@@ -310,7 +349,8 @@ export class SpriteHero {
     }
 
     public handleSwordAttacksSpecial() {
-        if (!this.cursors || !this.spriteIdle || this.swingingSword === true) {
+        const active = this.getActiveSprite();
+        if (!this.cursors || !active || this.swingingSword === true) {
             return;
         }
 
@@ -327,7 +367,8 @@ export class SpriteHero {
     }
 
     public handleSwordAttacks() {
-        if (!this.spriteIdle || this.swingingSwordSpecial === true) {
+        const active = this.getActiveSprite();
+        if (!active || this.swingingSwordSpecial === true) {
             return;
         }
 
@@ -344,13 +385,14 @@ export class SpriteHero {
     }
 
     public handleBullets() {
-        if (!this.spriteIdle) {
+        const active = this.getActiveSprite();
+        if (!active) {
             return;
         }
         const currentTime = this.scene.time.now;
 
         if ((this.bulletKey?.isDown) && (currentTime - this.lastBullet > this.bulletRate)) {
-            const angle: number = (this.spriteIdle.flipX) ? 180 : 0;
+            const angle: number = (active.flipX) ? 180 : 0;
             const centroid = this.getCentroid();
 
             const bullet = new Bullet(this.scene, centroid.x, centroid.y, angle, [0xFF00FF]);
@@ -360,12 +402,10 @@ export class SpriteHero {
         }
     }
 
-    // Migrated Point to Vector2 return value
     public getCenter(): Phaser.Math.Vector2 {
-        if (this.spriteIdle) {
-            const centerX = this.spriteIdle.x + this.spriteIdle.displayWidth / 2;
-            const centerY = this.spriteIdle.y + this.spriteIdle.displayHeight / 2;
-            return new Phaser.Math.Vector2(centerX, centerY);
+        const active = this.getActiveSprite();
+        if (active) {
+            return new Phaser.Math.Vector2(active.x, active.y);
         } else {
             return new Phaser.Math.Vector2(0, 0);
         }

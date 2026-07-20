@@ -3,7 +3,9 @@ import { Mine } from './mine';
 import { BaseExplodableState } from './baseExplodable';
 import { SoundPlayer } from './SoundPlayer';
 import { Bullet } from './bullet';
-import { SpriteHeroAnimationState } from './SpriteHero';
+import { SpriteHero, SpriteHeroAnimationState } from './SpriteHero';
+import { EnemySensorSystem, AIDecision } from './EnemySensorSystem';
+import { EnemyProfiles, EnemyAIConfig } from './EnemyAIConfig';
 
 export class EnemyAntiHero {
     protected spriteRun?: Phaser.Physics.Arcade.Sprite | null;
@@ -14,13 +16,7 @@ export class EnemyAntiHero {
     public soundPlayer: SoundPlayer;
 
     protected attackRate: number = 200;
-
-    protected cursors: Phaser.Types.Input.Keyboard.CursorKeys;
-    protected mineKey?: Phaser.Input.Keyboard.Key;
-    protected bulletKey?: Phaser.Input.Keyboard.Key;
-
     protected scene: Phaser.Scene;
-
     protected animationState: SpriteHeroAnimationState = SpriteHeroAnimationState.IDLE;
 
     protected swingingSwordSpecial: boolean = false;
@@ -30,34 +26,83 @@ export class EnemyAntiHero {
     protected swordAttackRate: number = 800;
 
     protected lastMinePlaced: number = 0;
-    protected mineRate: number = 500;
+    protected mineRate: number = 2000;
     protected mines: Mine[] = [];
 
     protected lastBullet: number = 0;
-    protected bulletRate: number = 500;
+    protected bulletRate: number = 600;
     protected bullets: Bullet[] = [];
 
-    constructor(scene: Phaser.Scene, cursors: Phaser.Types.Input.Keyboard.CursorKeys, soundPlayer: SoundPlayer) {
+    private aiBrain: EnemySensorSystem;
+    private currentConfig: EnemyAIConfig;
+    private heroTarget: SpriteHero;
+
+    private isJumpLocked: boolean = false;
+    private jumpDirectionX: number = 0;
+
+    constructor(
+        scene: Phaser.Scene,
+        soundPlayer: SoundPlayer,
+        hero: SpriteHero,
+        profile: EnemyAIConfig = EnemyProfiles.HARD
+    ) {
         this.scene = scene;
-        this.cursors = cursors;
         this.soundPlayer = soundPlayer;
-        this.mineKey = this.scene.input?.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-        this.bulletKey = this.scene.input?.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+        this.heroTarget = hero;
+        this.currentConfig = profile;
+        this.aiBrain = new EnemySensorSystem(profile);
+    }
+
+    public setDifficultyProfile(newProfile: EnemyAIConfig): void {
+        this.currentConfig = newProfile;
+        this.aiBrain.setProfile(newProfile);
+    }
+
+    public getActiveSprite(): Phaser.Physics.Arcade.Sprite {
+        switch (this.animationState) {
+            case SpriteHeroAnimationState.RUN:
+                return this.spriteRun || this.spriteIdle!;
+            case SpriteHeroAnimationState.JUMPING:
+                return this.spriteJump || this.spriteIdle!;
+            case SpriteHeroAnimationState.ATTACK:
+                return this.spriteAttack || this.spriteIdle!;
+            case SpriteHeroAnimationState.SPECIAL_ATTACK:
+                return this.spriteSpecialAttack || this.spriteIdle!;
+            case SpriteHeroAnimationState.IDLE:
+            default:
+                return this.spriteIdle!;
+        }
     }
 
     applyToAllSprites(applyHandler: (sprite: Phaser.Physics.Arcade.Sprite) => void) {
         if (!this.spriteIdle || !this.spriteJump || !this.spriteRun || !this.spriteAttack || !this.spriteSpecialAttack) {
             return;
         }
-        const sprites: Phaser.Physics.Arcade.Sprite[] = [this.spriteIdle, this.spriteJump, this.spriteRun, this.spriteAttack, this.spriteSpecialAttack];
+        const sprites: Phaser.Physics.Arcade.Sprite[] = [
+            this.spriteIdle, 
+            this.spriteJump, 
+            this.spriteRun, 
+            this.spriteAttack, 
+            this.spriteSpecialAttack
+        ];
         sprites.forEach((sprite) => {
             applyHandler(sprite);
         });
     }
 
     showSpriteFromState(animationState: SpriteHeroAnimationState) {
-        this.animationState = animationState;
+        if (this.animationState === animationState) return;
 
+        const activeBefore = this.getActiveSprite();
+        if (activeBefore) {
+            const currentX = activeBefore.x;
+            const currentY = activeBefore.y;
+            this.applyToAllSprites((sprite) => {
+                sprite.setPosition(currentX, currentY);
+            });
+        }
+
+        this.animationState = animationState;
         switch (this.animationState) {
             case SpriteHeroAnimationState.IDLE:
                 this.spriteAttack?.setVisible(false);
@@ -112,43 +157,171 @@ export class EnemyAntiHero {
         }
     }
 
-    drawHeroSprite() {
-        this.handleSpriteMovement();
-        this.handleMines();
-        this.handleBullets();
-        this.handleSwordAttacksSpecial();
-        this.handleSwordAttacks();
+    drawHeroSprite(
+        target?: SpriteHero,
+        platforms?: (Phaser.Physics.Arcade.Sprite | Phaser.Physics.Arcade.Image)[]
+    ) {
+        let decision: AIDecision | null = null;
+        const currentHero = target || this.heroTarget;
+        const activeSprite = this.getActiveSprite();
+
+        if (currentHero && platforms && activeSprite && activeSprite.active) {
+            decision = this.aiBrain.evaluate(
+                this.scene.time.now,
+                activeSprite,
+                currentHero,
+                platforms
+            );
+        }
+
+        this.handleSpriteMovement(decision);
+        this.handleCombatActions(decision);
+        this.drawMines();
+        this.drawBullets();
     }
 
-    private handleSpriteMovement() {
-        if (!this.spriteIdle || !this.spriteIdle.body || this.swingingSwordSpecial === true) {
+    private handleSpriteMovement(decision: AIDecision | null) {
+        const activeSprite = this.getActiveSprite();
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true) {
             return;
         }
 
-        if (this.cursors.left.isDown) {
-            this.applyToAllSprites(sprite => sprite.setFlipX(true));
-            if (this.spriteIdle.body.touching.down) {
-                this.showSpriteFromState(SpriteHeroAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(-100));
+        const isGrounded = activeSprite.body.touching.down || activeSprite.body.blocked.down;
+        const speed = 135;
+
+        if (isGrounded && this.isJumpLocked) {
+            this.isJumpLocked = false;
+        }
+
+        const currentHero = this.heroTarget;
+        const heroActive = currentHero ? currentHero.getActiveSprite() : null;
+
+        // -------------------------------------------------------------
+        // SPACING & PURSUIT CALCULATIONS
+        // -------------------------------------------------------------
+        let moveDir = 0;
+
+        if (this.isJumpLocked) {
+            moveDir = this.jumpDirectionX;
+        } else if (heroActive && activeSprite) {
+            const enemyX = activeSprite.x;
+            const heroX = heroActive.x;
+            const dx = heroX - enemyX;
+            const dy = heroActive.y - activeSprite.y;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+
+            // Desired attack distance offset (60px keeps him at arm's length)
+            const targetSpacing = 60;
+
+            if (absDy > 40) {
+                // On different platform levels -> pursue horizontally
+                moveDir = dx > 0 ? 1 : -1;
+            } else {
+                // Same level -> target being 60px to left or right of hero
+                if (dx > 0) {
+                    // Hero is to the RIGHT. Target standing spot is (heroX - 60)
+                    const distToTargetSpot = (heroX - targetSpacing) - enemyX;
+                    if (distToTargetSpot > 5) moveDir = 1;
+                    else if (distToTargetSpot < -5) moveDir = -1;
+                    else moveDir = 0;
+                } else {
+                    // Hero is to the LEFT. Target standing spot is (heroX + 60)
+                    const distToTargetSpot = (heroX + targetSpacing) - enemyX;
+                    if (distToTargetSpot < -5) moveDir = -1;
+                    else if (distToTargetSpot > 5) moveDir = 1;
+                    else moveDir = 0;
+                }
             }
-        } else if (this.cursors.right.isDown) {
-            this.applyToAllSprites(sprite => sprite.setFlipX(false));
-            if (this.spriteIdle.body.touching.down) {
+        } else if (decision) {
+            moveDir = decision.moveDirection;
+        }
+
+        // -------------------------------------------------------------
+        // APPLY VELOCITY & ANIMATIONS
+        // -------------------------------------------------------------
+        if (moveDir === -1) {
+            this.applyToAllSprites(sprite => sprite.setVelocityX(-speed));
+            if (isGrounded) {
                 this.showSpriteFromState(SpriteHeroAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(100));
+            } else {
+                this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
+            }
+        } else if (moveDir === 1) {
+            this.applyToAllSprites(sprite => sprite.setVelocityX(speed));
+            if (isGrounded) {
+                this.showSpriteFromState(SpriteHeroAnimationState.RUN);
+            } else {
+                this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
             }
         } else {
             this.applyToAllSprites(sprite => sprite.setVelocityX(0));
-            if (this.spriteIdle.body.touching.down) {
+            if (isGrounded) {
                 this.showSpriteFromState(SpriteHeroAnimationState.IDLE);
             } else {
                 this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
             }
         }
 
-        if (this.cursors.up.isDown && (this.spriteIdle.body.touching.down)) {
-            this.applyToAllSprites(sprite => sprite.setVelocityY(-480));
+        // -------------------------------------------------------------
+        // INITIATE JUMP
+        // -------------------------------------------------------------
+        if (decision?.shouldJump && isGrounded && !this.isJumpLocked) {
+            this.isJumpLocked = true;
+            this.jumpDirectionX = moveDir !== 0 ? moveDir : (heroActive && heroActive.x < activeSprite.x ? -1 : 1);
+
+            this.applyToAllSprites(sprite => sprite.setVelocityY(this.currentConfig.jumpVelocityY));
             this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
+        }
+
+        // -------------------------------------------------------------
+        // GROUNDED FACING DIRECTION
+        // -------------------------------------------------------------
+        if (isGrounded && heroActive && activeSprite) {
+            const dx = heroActive.x - activeSprite.x;
+            this.applyToAllSprites(sprite => sprite.setFlipX(dx < 0));
+        }
+    }
+
+    private handleCombatActions(decision: AIDecision | null) {
+        if (!decision || !this.spriteIdle) return;
+
+        const currentTime = this.scene.time.now;
+
+        if (decision.shouldSpecial && !this.swingingSwordSpecial && !this.swingingSword) {
+            this.showSpriteFromState(SpriteHeroAnimationState.SPECIAL_ATTACK);
+            this.swingingSwordSpecial = true;
+            setTimeout(() => {
+                this.swingingSwordSpecial = false;
+            }, this.swordAttackRateSpecial);
+            return;
+        }
+
+        if (decision.shouldMelee && !this.swingingSword && !this.swingingSwordSpecial) {
+            this.showSpriteFromState(SpriteHeroAnimationState.ATTACK);
+            this.swingingSword = true;
+            setTimeout(() => {
+                this.swingingSword = false;
+            }, this.swordAttackRate);
+            return;
+        }
+
+        if (decision.shouldMine && (currentTime - this.lastMinePlaced > this.mineRate)) {
+            const centroid = this.getCentroidBottomSide();
+            const mine = new Mine(this.scene, centroid.x, centroid.y - 20);
+            this.mines.push(mine);
+            this.lastMinePlaced = currentTime;
+            this.soundPlayer.playMissileSound();
+        }
+
+        if (decision.shouldBullet && (currentTime - this.lastBullet > this.bulletRate)) {
+            const active = this.getActiveSprite();
+            const angle: number = active.flipX ? 180 : 0;
+            const centroid = this.getCentroid();
+            const bullet = new Bullet(this.scene, centroid.x, centroid.y, angle);
+            this.bullets.push(bullet);
+            this.soundPlayer.playBulletSound();
+            this.lastBullet = currentTime;
         }
     }
 
@@ -159,11 +332,10 @@ export class EnemyAntiHero {
                 minesLeft.push(mine);
             }
             if (x !== undefined) {
-                mine.incrementX(x); // Fixed typo from inrementX to incrementX
+                mine.incrementX(x);
             }
             mine.render();
         });
-
         this.mines = minesLeft;
     }
 
@@ -178,7 +350,6 @@ export class EnemyAntiHero {
             }
             bullet.render();
         });
-
         this.bullets = bulletsLeft;
     }
 
@@ -240,11 +411,11 @@ export class EnemyAntiHero {
         });
     }
 
-    getStaticXPosition() {
+    public getStaticXPosition() {
         return (this.scene.scale.width / 4);
     }
 
-    createHeroSprite() {
+    public createHeroSprite() {
         this.loadAnimationConfiguration();
 
         const xPos = this.scene.scale.width / 2;
@@ -266,7 +437,7 @@ export class EnemyAntiHero {
         });
     }
 
-    resizeEvent(x: number, y: number) {
+    public resizeEvent(x: number, y: number) {
         this.applyToAllSprites((sprite) => {
             sprite.setPosition(x, y);
             sprite.setDepth(10);
@@ -277,92 +448,32 @@ export class EnemyAntiHero {
         this.showSpriteFromState(this.animationState);
     }
 
-    // Migrated Geom.Point to Math.Vector2 return value
     public getCentroidBottomSide(): Phaser.Math.Vector2 {
-        return new Phaser.Math.Vector2(this.spriteIdle?.getBottomCenter().x, this.spriteIdle?.getBottomCenter().y);
+        const active = this.getActiveSprite();
+        return new Phaser.Math.Vector2(active.getBottomCenter().x, active.getBottomCenter().y);
     }
 
-    // Migrated Geom.Point to Math.Vector2 return value
     public getCentroid(): Phaser.Math.Vector2 {
-        return new Phaser.Math.Vector2(this.spriteIdle?.getBounds().centerX, (0) + ((this.spriteIdle?.getBounds()?.centerY) ? this.spriteIdle?.getBounds().centerY : 0));
+        const active = this.getActiveSprite();
+        return new Phaser.Math.Vector2(
+            active.getBounds().centerX, 
+            (active.getBounds()?.centerY) ? active.getBounds().centerY : 0
+        );
     }
 
-    public handleMines() {
-        if (!this.spriteIdle) {
-            return;
-        }
-        const currentTime = this.scene.time.now;
-
-        if ((this.mineKey?.isDown) && (currentTime - this.lastMinePlaced > this.mineRate)) {
-            const centroid = this.getCentroidBottomSide();
-            const x = centroid.x;
-            const y = centroid.y;
-            const mine = new Mine(this.scene, x, y - 20);
-            this.mines.push(mine);
-            this.lastMinePlaced = currentTime;
-            this.soundPlayer.playMissileSound();
-        }
-    }
-
-    public handleSwordAttacksSpecial() {
-        if (!this.cursors || !this.spriteIdle || this.swingingSword === true) {
-            return;
-        }
-
-        if ((this.cursors.down.isDown && this.swingingSwordSpecial === false) || this.swingingSwordSpecial === true) {
-            this.showSpriteFromState(SpriteHeroAnimationState.SPECIAL_ATTACK);
-
-            if (!this.swingingSwordSpecial) {
-                this.swingingSwordSpecial = true;
-                setTimeout(() => {
-                    this.swingingSwordSpecial = false;
-                }, this.swordAttackRateSpecial);
-            }
-        }
-    }
-
-    public handleSwordAttacks() {
-        if (!this.spriteIdle || this.swingingSwordSpecial === true) {
-            return;
-        }
-
-        if ((this.cursors.space.isDown && this.swingingSword === false) || this.swingingSword === true) {
-            this.showSpriteFromState(SpriteHeroAnimationState.ATTACK);
-
-            if (!this.swingingSword) {
-                this.swingingSword = true;
-                setTimeout(() => {
-                    this.swingingSword = false;
-                }, this.swordAttackRateSpecial);
-            }
-        }
-    }
-
-    public handleBullets() {
-        if (!this.spriteIdle) {
-            return;
-        }
-        const currentTime = this.scene.time.now;
-
-        if ((this.bulletKey?.isDown) && (currentTime - this.lastBullet > this.bulletRate)) {
-            const angle: number = (this.spriteIdle.flipX) ? 180 : 0;
-            const centroid = this.getCentroid();
-
-            const bullet = new Bullet(this.scene, centroid.x, centroid.y, angle);
-            this.bullets.push(bullet);
-            this.soundPlayer.playBulletSound();
-            this.lastBullet = currentTime;
-        }
-    }
-
-    // Migrated Geom.Point to Math.Vector2 return value
     public getCenter(): Phaser.Math.Vector2 {
-        if (this.spriteIdle) {
-            const centerX = this.spriteIdle.x + this.spriteIdle.displayWidth / 2;
-            const centerY = this.spriteIdle.y + this.spriteIdle.displayHeight / 2;
-            return new Phaser.Math.Vector2(centerX, centerY);
-        } else {
-            return new Phaser.Math.Vector2(0, 0);
+        const active = this.getActiveSprite();
+        if (active && active.body) {
+            return new Phaser.Math.Vector2(
+                active.x,
+                active.y
+            );
         }
+        return new Phaser.Math.Vector2(0, 0);
     }
+
+    public handleMines() {}
+    public handleSwordAttacksSpecial() {}
+    public handleSwordAttacks() {}
+    public handleBullets() {}
 }

@@ -6,6 +6,7 @@ import { SpriteHero } from '../gameobjects/SpriteHero';
 import { SoundPlayer } from '../gameobjects/SoundPlayer';
 import { EnemyAntiHero } from '../gameobjects/EnemyAntiHero';
 import { js as EasyStarJs } from 'easystarjs';
+import { EnemyProfiles } from '../gameobjects/EnemyAIConfig';
 
 export class MainScene extends Phaser.Scene {
 
@@ -115,7 +116,15 @@ export class MainScene extends Phaser.Scene {
 
         this.groundGroup?.refresh();
 
+
         this.spriteHero?.drawHeroSprite();
+       
+        const allPlatforms = [
+            ...(this.groundGroup?.getChildren() as Phaser.Physics.Arcade.Sprite[] || []),
+            ...this.floatingPlatformBodies
+        ];
+        this.enemyAntiHero?.drawHeroSprite(this.spriteHero, allPlatforms);
+
         this.enemyAntiHero?.drawHeroSprite();
     }
 
@@ -223,7 +232,7 @@ export class MainScene extends Phaser.Scene {
         });
 
         if (!this.enemyAntiHero) {
-            this.enemyAntiHero = new EnemyAntiHero(this, this.cursorKeys, this.soundPlayer);
+            this.enemyAntiHero = new EnemyAntiHero(this, this.soundPlayer, this.spriteHero, EnemyProfiles.HARD);
             this.enemyAntiHero.createHeroSprite();
         } else {
             this.enemyAntiHero.soundPlayer = this.soundPlayer;
