@@ -6,8 +6,11 @@ import { SoundPlayer } from './SoundPlayer';
 export class EnemyAntiHero extends SpriteWarriorBase {
     constructor(scene: Phaser.Scene, controller: InputController, soundPlayer: SoundPlayer) {
         super(scene, controller, soundPlayer);
-
-        // Bind custom enemy animation sprite keys
+        
+        // PRONOUNCED SPEED CONTRAST:
+        // Noticeably slower than the hero (160) and scrolling background (240)
+        this.moveSpeed = 110; 
+       
         this.animKeyIdle = 'enemyidle';
         this.animKeyRun = 'enemyrun';
         this.animKeyJump = 'enemyjump';
@@ -92,7 +95,6 @@ export class EnemyAntiHero extends SpriteWarriorBase {
         });
     }
 
-    // Override sprite bounds/offsets to match the AntiHero's specific asset dimensions
     public createHeroSprite(): void {
         this.loadAnimationConfiguration();
 
@@ -112,7 +114,24 @@ export class EnemyAntiHero extends SpriteWarriorBase {
             sprite.setOffset(50, 20);
             sprite.setVisible(false);
             sprite.setBounce(0.1);
-            sprite.setCollideWorldBounds(true);
+            
+            // MUST BE FALSE: Detaches him from the center world box so he can scroll off-screen
+            sprite.setCollideWorldBounds(false);
         });
+    }
+
+    public override drawHeroSprite(): void {
+        super.drawHeroSprite();
+        
+        // VOID RESCUE: If he falls into a pit while off-screen, snap him safely
+        // back onto the sidewalk so he never permanently vanishes from the game.
+        const active = this.getActiveSprite();
+        if (active && active.y > this.scene.scale.height) {
+            const groundY = this.scene.scale.height - 60; // Just above ground level
+            this.applyToAllSprites(sprite => {
+                sprite.y = groundY;
+                sprite.setVelocityY(0);
+            });
+        }
     }
 }

@@ -5,7 +5,7 @@ import { SoundPlayer } from './SoundPlayer';
 import { Bullet } from './bullet';
 import { InputController } from './InputController';
 
-export enum SpriteAnimationState {
+export enum SpriteHeroAnimationState {
     IDLE = 0,
     RUN = 1,
     JUMPING = 2,
@@ -27,7 +27,7 @@ export abstract class SpriteWarriorBase {
     protected scene: Phaser.Scene;
 
     protected attackRate: number = 200;
-    protected animationState: SpriteAnimationState = SpriteAnimationState.IDLE;
+    protected animationState: SpriteHeroAnimationState = SpriteHeroAnimationState.IDLE;
 
     protected swingingSwordSpecial: boolean = false;
     protected swordAttackRateSpecial: number = 800;
@@ -43,14 +43,14 @@ export abstract class SpriteWarriorBase {
     protected bulletRate: number = 500;
     protected bullets: Bullet[] = [];
 
-    // Keys used by subclasses for animation generation and sprite creation
     protected animKeyIdle: string = 'heroidle';
     protected animKeyRun: string = 'herorun';
     protected animKeyJump: string = 'herojump';
     protected animKeyAttack: string = 'heroattack';
     protected animKeySpecialAttack: string = 'herospecialattack';
     protected animKeyDeath: string = 'herodeath';
-
+    protected moveSpeed: number = 160; 
+    
     constructor(scene: Phaser.Scene, controller: InputController, soundPlayer: SoundPlayer) {
         this.scene = scene;
         this.controller = controller;
@@ -61,17 +61,17 @@ export abstract class SpriteWarriorBase {
 
     public getActiveSprite(): Phaser.Physics.Arcade.Sprite {
         switch (this.animationState) {
-            case SpriteAnimationState.DEATH:
+            case SpriteHeroAnimationState.DEATH:
                 return this.spriteDeath || this.spriteIdle!;
-            case SpriteAnimationState.RUN:
+            case SpriteHeroAnimationState.RUN:
                 return this.spriteRun || this.spriteIdle!;
-            case SpriteAnimationState.JUMPING:
+            case SpriteHeroAnimationState.JUMPING:
                 return this.spriteJump || this.spriteIdle!;
-            case SpriteAnimationState.ATTACK:
+            case SpriteHeroAnimationState.ATTACK:
                 return this.spriteAttack || this.spriteIdle!;
-            case SpriteAnimationState.SPECIAL_ATTACK:
+            case SpriteHeroAnimationState.SPECIAL_ATTACK:
                 return this.spriteSpecialAttack || this.spriteIdle!;
-            case SpriteAnimationState.IDLE:
+            case SpriteHeroAnimationState.IDLE:
             default:
                 return this.spriteIdle!;
         }
@@ -82,10 +82,10 @@ export abstract class SpriteWarriorBase {
             return;
         }
         const sprites: Phaser.Physics.Arcade.Sprite[] = [
-            this.spriteIdle, 
-            this.spriteJump, 
-            this.spriteRun, 
-            this.spriteAttack, 
+            this.spriteIdle,
+            this.spriteJump,
+            this.spriteRun,
+            this.spriteAttack,
             this.spriteSpecialAttack,
             this.spriteDeath,
         ];
@@ -94,7 +94,7 @@ export abstract class SpriteWarriorBase {
         });
     }
 
-    public showSpriteFromState(animationState: SpriteAnimationState): void {
+    public showSpriteFromState(animationState: SpriteHeroAnimationState): void {
         const activeBefore = this.getActiveSprite();
         if (activeBefore) {
             const currentX = activeBefore.x;
@@ -106,7 +106,7 @@ export abstract class SpriteWarriorBase {
 
         this.animationState = animationState;
         switch (this.animationState) {
-            case SpriteAnimationState.IDLE:
+            case SpriteHeroAnimationState.IDLE:
                 this.spriteAttack?.setVisible(false);
                 this.spriteRun?.setVisible(false);
                 this.spriteJump?.setVisible(false);
@@ -117,7 +117,7 @@ export abstract class SpriteWarriorBase {
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.stopFlyingSound();
                 break;
-            case SpriteAnimationState.RUN:
+            case SpriteHeroAnimationState.RUN:
                 this.spriteAttack?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
@@ -128,7 +128,7 @@ export abstract class SpriteWarriorBase {
                 this.soundPlayer?.stopFlyingSound();
                 this.soundPlayer?.playRunningSound();
                 break;
-            case SpriteAnimationState.JUMPING:
+            case SpriteHeroAnimationState.JUMPING:
                 this.spriteAttack?.setVisible(false);
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
@@ -139,7 +139,7 @@ export abstract class SpriteWarriorBase {
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.playFlyingSound();
                 break;
-            case SpriteAnimationState.ATTACK:
+            case SpriteHeroAnimationState.ATTACK:
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
@@ -150,7 +150,7 @@ export abstract class SpriteWarriorBase {
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.playSwordSound();
                 break;
-            case SpriteAnimationState.SPECIAL_ATTACK:
+            case SpriteHeroAnimationState.SPECIAL_ATTACK:
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
@@ -161,7 +161,7 @@ export abstract class SpriteWarriorBase {
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.playSword2Sound();
                 break;
-            case SpriteAnimationState.DEATH:
+            case SpriteHeroAnimationState.DEATH:
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
@@ -185,36 +185,37 @@ export abstract class SpriteWarriorBase {
 
     protected handleSpriteMovement(): void {
         const activeSprite = this.getActiveSprite();
-        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.animationState === SpriteAnimationState.DEATH) {
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
-        const isGrounded = activeSprite.body.touching.down || activeSprite.body.blocked.down;
+        const body = activeSprite.body as Phaser.Physics.Arcade.Body;
+        const isGrounded = (body.touching.down || body.blocked.down);
 
         if (this.controller.isLeft()) {
             this.applyToAllSprites(sprite => sprite.setFlipX(true));
             if (isGrounded) {
-                this.showSpriteFromState(SpriteAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(-160));
+                this.showSpriteFromState(SpriteHeroAnimationState.RUN);
+                this.applyToAllSprites(sprite => sprite.setVelocityX(-this.moveSpeed));
             }
         } else if (this.controller.isRight()) {
             this.applyToAllSprites(sprite => sprite.setFlipX(false));
             if (isGrounded) {
-                this.showSpriteFromState(SpriteAnimationState.RUN);
-                this.applyToAllSprites(sprite => sprite.setVelocityX(160));
+                this.showSpriteFromState(SpriteHeroAnimationState.RUN);
+                this.applyToAllSprites(sprite => sprite.setVelocityX(this.moveSpeed));
             }
         } else {
             this.applyToAllSprites(sprite => sprite.setVelocityX(0));
             if (isGrounded) {
-                this.showSpriteFromState(SpriteAnimationState.IDLE);
+                this.showSpriteFromState(SpriteHeroAnimationState.IDLE);
             } else {
-                this.showSpriteFromState(SpriteAnimationState.JUMPING);
+                this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
             }
         }
 
         if (this.controller.isUp() && isGrounded) {
             this.applyToAllSprites(sprite => sprite.setVelocityY(-480));
-            this.showSpriteFromState(SpriteAnimationState.JUMPING);
+            this.showSpriteFromState(SpriteHeroAnimationState.JUMPING);
         }
     }
 
@@ -294,14 +295,14 @@ export abstract class SpriteWarriorBase {
     public getCentroid(): Phaser.Math.Vector2 {
         const active = this.getActiveSprite();
         return new Phaser.Math.Vector2(
-            active.getBounds().centerX, 
+            active.getBounds().centerX,
             (42) + ((active.getBounds()?.centerY) ? active.getBounds().centerY : 0)
         );
     }
 
     public handleMines(): void {
         const active = this.getActiveSprite();
-        if (!active || this.animationState === SpriteAnimationState.DEATH) {
+        if (!active || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
         const currentTime = this.scene.time.now;
@@ -319,12 +320,12 @@ export abstract class SpriteWarriorBase {
 
     public handleSwordAttacksSpecial(): void {
         const active = this.getActiveSprite();
-        if (!active || this.swingingSword === true || this.animationState === SpriteAnimationState.DEATH) {
+        if (!active || this.swingingSword === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
         if ((this.controller.isSpecialAttacking() && this.swingingSwordSpecial === false) || this.swingingSwordSpecial === true) {
-            this.showSpriteFromState(SpriteAnimationState.SPECIAL_ATTACK);
+            this.showSpriteFromState(SpriteHeroAnimationState.SPECIAL_ATTACK);
 
             if (!this.swingingSwordSpecial) {
                 this.swingingSwordSpecial = true;
@@ -337,12 +338,12 @@ export abstract class SpriteWarriorBase {
 
     public handleSwordAttacks(): void {
         const active = this.getActiveSprite();
-        if (!active || this.swingingSwordSpecial === true || this.animationState === SpriteAnimationState.DEATH) {
+        if (!active || this.swingingSwordSpecial === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
         if ((this.controller.isAttacking() && this.swingingSword === false) || this.swingingSword === true) {
-            this.showSpriteFromState(SpriteAnimationState.ATTACK);
+            this.showSpriteFromState(SpriteHeroAnimationState.ATTACK);
 
             if (!this.swingingSword) {
                 this.swingingSword = true;
@@ -355,7 +356,7 @@ export abstract class SpriteWarriorBase {
 
     public handleBullets(): void {
         const active = this.getActiveSprite();
-        if (!active || this.animationState === SpriteAnimationState.DEATH) {
+        if (!active || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
         const currentTime = this.scene.time.now;
@@ -378,5 +379,17 @@ export abstract class SpriteWarriorBase {
         } else {
             return new Phaser.Math.Vector2(0, 0);
         }
+    }
+
+    public shiftPosition(dx: number): void {
+        const active = this.getActiveSprite();
+        if (!active) return;
+
+        this.applyToAllSprites((sprite) => {
+            sprite.x += dx;
+            if (sprite.body) {
+                (sprite.body as Phaser.Physics.Arcade.Body).x += dx;
+            }
+        });
     }
 }

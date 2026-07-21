@@ -6,8 +6,8 @@ import { SpriteHero } from '../gameobjects/SpriteHero';
 import { SoundPlayer } from '../gameobjects/SoundPlayer';
 import { EnemyAntiHero } from '../gameobjects/EnemyAntiHero';
 import { js as EasyStarJs } from 'easystarjs';
-import { EnemyProfiles } from '../gameobjects/EnemyAIConfig';
 import { KeyboardInputController } from '../gameobjects/KeyboardInputController';
+import { EnemyAIInputController } from '../gameobjects/EnemyAIInputController';
 
 export class MainScene extends Phaser.Scene {
 
@@ -23,6 +23,7 @@ export class MainScene extends Phaser.Scene {
     private mainSceneStartGameText: MainSceneStartGameText = new MainSceneStartGameText(this);
     protected spriteHero?: SpriteHero;
     protected enemyAntiHero?: EnemyAntiHero;
+    protected enemyAIController?: EnemyAIInputController;
 
     protected cursorKeys!: Phaser.Types.Input.Keyboard.CursorKeys;
     protected groundGroup?: Phaser.Physics.Arcade.StaticGroup;
@@ -74,48 +75,39 @@ export class MainScene extends Phaser.Scene {
         const distanceIncrement = 4;
 
         if (this.cursorKeys?.left.isDown) {
-            this.bricksTileSprite.tilePositionX -= distanceIncrement;
-            this.mountainRangeSprite.tilePositionX -= distanceIncrement / 2;
-            this.skySprite.tilePositionX -= distanceIncrement / 6;
-            this.cloudsSprite.tilePositionX -= distanceIncrement / 4;
-
-            this.distanceLeft += distanceIncrement;
-            this.distanceRight -= distanceIncrement;
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x += distanceIncrement;
             });
+            
+            // 0.8 pushes him backward at 192 px/sec
+            this.enemyAntiHero?.shiftPosition(distanceIncrement * 0.8);
+            
             this.spriteHero?.drawMines(distanceIncrement);
             this.spriteHero?.drawBullets(distanceIncrement);
-
             this.enemyAntiHero?.drawMines(distanceIncrement);
             this.enemyAntiHero?.drawBullets(distanceIncrement);
-
         } else if (this.cursorKeys?.right.isDown) {
-            this.bricksTileSprite.tilePositionX += distanceIncrement;
-            this.mountainRangeSprite.tilePositionX += distanceIncrement / 2;
-            this.skySprite.tilePositionX += distanceIncrement / 6;
-            this.cloudsSprite.tilePositionX += distanceIncrement / 4;
-
-            this.distanceRight += distanceIncrement;
-            this.distanceLeft -= distanceIncrement;
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x -= distanceIncrement;
             });
+            
+            // 0.8 pushes him backward at 192 px/sec
+            this.enemyAntiHero?.shiftPosition(-distanceIncrement * 0.8);
+            
             this.spriteHero?.drawMines(-distanceIncrement);
             this.spriteHero?.drawBullets(-distanceIncrement);
-
             this.enemyAntiHero?.drawMines(-distanceIncrement);
             this.enemyAntiHero?.drawBullets(-distanceIncrement);
-
         } else {
             this.spriteHero?.drawMines();
             this.spriteHero?.drawBullets();
-
             this.enemyAntiHero?.drawMines();
             this.enemyAntiHero?.drawBullets();
         }
 
         this.groundGroup?.refresh();
+
+        this.enemyAIController?.update(this.time.now);
         this.spriteHero?.drawHeroSprite();
         this.enemyAntiHero?.drawHeroSprite();
     }
@@ -181,14 +173,13 @@ export class MainScene extends Phaser.Scene {
         this.cloudsSprite.setDepth(this.skySpriteDepth);
         Utils.resizeImageToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
     }
-    
-    
+
+
     protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
         if (this.bricksTileSprite) {
             this.bricksTileSprite.destroy();
         }
 
-        // Offset by half the ground height so the bottom edge aligns with the screen bottom
         const groundY = screenHeight - (MainScene.GROUND_HEIGHT / 2);
 
         this.bricksTileSprite = this.add.tileSprite(0, 0, screenWidth, MainScene.GROUND_HEIGHT, "bricks2");
@@ -205,7 +196,9 @@ export class MainScene extends Phaser.Scene {
             this.groundGroupBody = this.groundGroup.create(screenWidth / 2, groundY) as Phaser.Physics.Arcade.Sprite;
         }
 
-        this.groundGroupBody.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
+        // CHANGE THIS LINE: Multiply by 20 so the physical floor extends far off-screen!
+        this.groundGroupBody.setDisplaySize(screenWidth * 20, MainScene.GROUND_HEIGHT);
+
         this.groundGroupBody.setPosition(screenWidth / 2, groundY);
         this.groundGroupBody.setVisible(false);
         this.groundGroupBody.refreshBody();
@@ -214,7 +207,8 @@ export class MainScene extends Phaser.Scene {
 
     protected resizeCreateUpdateCharacters(screenWidth: number) {
         if (!this.spriteHero) {
-            this.spriteHero = new SpriteHero(this, new KeyboardInputController(this), this.soundPlayer);
+            const playerController = new KeyboardInputController(this);
+            this.spriteHero = new SpriteHero(this, playerController, this.soundPlayer);
             this.spriteHero.createHeroSprite();
         } else {
             this.spriteHero.soundPlayer = this.soundPlayer;
@@ -228,8 +222,17 @@ export class MainScene extends Phaser.Scene {
         });
 
         if (!this.enemyAntiHero) {
-            this.enemyAntiHero = new EnemyAntiHero(this, new KeyboardInputController(this), this.soundPlayer);
+            const dummyController = new KeyboardInputController(this);
+            this.enemyAntiHero = new EnemyAntiHero(this, dummyController, this.soundPlayer);
             this.enemyAntiHero.createHeroSprite();
+
+            this.enemyAIController = new EnemyAIInputController(
+                this.enemyAntiHero,
+                this.spriteHero!,
+                this.floatingPlatformBodies
+            );
+
+            (this.enemyAntiHero as any).controller = this.enemyAIController;
         } else {
             this.enemyAntiHero.soundPlayer = this.soundPlayer;
         }
