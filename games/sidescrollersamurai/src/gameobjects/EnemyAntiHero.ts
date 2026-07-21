@@ -7,8 +7,6 @@ export class EnemyAntiHero extends SpriteWarriorBase {
     constructor(scene: Phaser.Scene, controller: InputController, soundPlayer: SoundPlayer) {
         super(scene, controller, soundPlayer);
         
-        // PRONOUNCED SPEED CONTRAST:
-        // Noticeably slower than the hero (160) and scrolling background (240)
         this.moveSpeed = 110; 
        
         this.animKeyIdle = 'enemyidle';
@@ -114,20 +112,25 @@ export class EnemyAntiHero extends SpriteWarriorBase {
             sprite.setOffset(50, 20);
             sprite.setVisible(false);
             sprite.setBounce(0.1);
-            
-            // MUST BE FALSE: Detaches him from the center world box so he can scroll off-screen
             sprite.setCollideWorldBounds(false);
         });
+    }
+
+    public override getCentroid(): Phaser.Math.Vector2 {
+        const active = this.getActiveSprite();
+        const bounds = active.getBounds();
+        return new Phaser.Math.Vector2(
+            bounds.centerX,
+            bounds.centerY - 15 // Moves bullet spawn up from center to head level
+        );
     }
 
     public override drawHeroSprite(): void {
         super.drawHeroSprite();
         
-        // VOID RESCUE: If he falls into a pit while off-screen, snap him safely
-        // back onto the sidewalk so he never permanently vanishes from the game.
         const active = this.getActiveSprite();
         if (active && active.y > this.scene.scale.height) {
-            const groundY = this.scene.scale.height - 60; // Just above ground level
+            const groundY = this.scene.scale.height - 60;
             this.applyToAllSprites(sprite => {
                 sprite.y = groundY;
                 sprite.setVelocityY(0);

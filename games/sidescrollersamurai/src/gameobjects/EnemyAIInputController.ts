@@ -161,7 +161,7 @@ export class EnemyAIInputController extends InputController {
         if (absDx <= 55 && !isAirborne) return;
 
         // 1. Enforce a 2.5-second (2500ms) cooldown between AI bullet decisions
-        const bulletCooldown = 2500;
+        const bulletCooldown = 1500;
         if (currentTime - this.lastBulletTime > bulletCooldown) {
             const distanceFactor = Math.min(absDx / Math.max(this.config.rangedRangeMax, 1), 1.0);
             
@@ -177,7 +177,9 @@ export class EnemyAIInputController extends InputController {
             }
         }
 
-        const mineProbability = isAirborne ? 0.75 : this.config.mineDropChance;
+        // Only launch mines if not grounded (isAirborne is true), otherwise 0% chance
+        const mineProbability = isAirborne ? 0.75 : 0;
+
         const mineCooldown = 4000;
         if (Math.random() <= mineProbability && (currentTime - this.lastMineTime > mineCooldown)) {
             decision.shouldMine = true;
