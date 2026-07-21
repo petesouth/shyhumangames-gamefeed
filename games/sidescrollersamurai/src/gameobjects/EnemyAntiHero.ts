@@ -13,6 +13,7 @@ export class EnemyAntiHero {
     protected spriteJump?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteAttack?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteSpecialAttack?: Phaser.Physics.Arcade.Sprite | null;
+    protected spriteDeath?: Phaser.Physics.Arcade.Sprite | null;
     public soundPlayer: SoundPlayer;
 
     protected attackRate: number = 200;
@@ -68,6 +69,8 @@ export class EnemyAntiHero {
                 return this.spriteAttack ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.SPECIAL_ATTACK:
                 return this.spriteSpecialAttack ?? this.spriteIdle ?? null;
+            case SpriteHeroAnimationState.DEATH:
+                return this.spriteDeath ?? this.spriteIdle ?? null;
             case SpriteHeroAnimationState.IDLE:
             default:
                 return this.spriteIdle ?? null;
@@ -80,7 +83,8 @@ export class EnemyAntiHero {
             this.spriteJump, 
             this.spriteRun, 
             this.spriteAttack, 
-            this.spriteSpecialAttack
+            this.spriteSpecialAttack,
+            this.spriteDeath
         ];
         sprites.forEach((sprite) => {
             if (sprite) {
@@ -108,6 +112,7 @@ export class EnemyAntiHero {
                 this.spriteRun?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteIdle?.setVisible(true);
                 this.spriteIdle?.play("enemyidle", true);
                 this.soundPlayer?.stopRunningSound();
@@ -118,6 +123,7 @@ export class EnemyAntiHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteRun?.setVisible(true);
                 this.spriteRun?.play("enemyrun", true);
                 this.soundPlayer?.stopFlyingSound();
@@ -128,6 +134,7 @@ export class EnemyAntiHero {
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteJump?.setVisible(true);
                 this.spriteJump?.play("enemyjump", true);
                 this.soundPlayer?.stopRunningSound();
@@ -138,6 +145,7 @@ export class EnemyAntiHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteAttack?.setVisible(true);
                 this.spriteAttack?.play("enemyattack", true);
                 this.soundPlayer?.stopRunningSound();
@@ -148,10 +156,22 @@ export class EnemyAntiHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(true);
                 this.spriteSpecialAttack?.play("enemyspecialattack", true);
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.playSword2Sound();
+                break;
+            case SpriteHeroAnimationState.DEATH:
+                this.spriteRun?.setVisible(false);
+                this.spriteIdle?.setVisible(false);
+                this.spriteJump?.setVisible(false);
+                this.spriteAttack?.setVisible(false);
+                this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(true);
+                this.spriteDeath?.play("enemydeath", true);
+                this.soundPlayer?.stopRunningSound();
+                this.soundPlayer?.stopFlyingSound();
                 break;
         }
     }
@@ -186,7 +206,7 @@ export class EnemyAntiHero {
 
     private handleSpriteMovement(decision: AIDecision | null): void {
         const activeSprite = this.getActiveSprite();
-        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.swingingSword === true) {
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.swingingSword === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
@@ -283,7 +303,7 @@ export class EnemyAntiHero {
     }
 
     private handleCombatActions(decision: AIDecision | null): void {
-        if (!decision || !this.spriteIdle || !this.scene || !this.scene.time) return;
+        if (!decision || !this.spriteIdle || !this.scene || !this.scene.time || this.animationState === SpriteHeroAnimationState.DEATH) return;
 
         const currentTime = this.scene.time.now;
 
@@ -411,6 +431,17 @@ export class EnemyAntiHero {
             frameRate: 10,
             repeat: -1
         });
+        this.scene.anims.create({
+            key: 'enemydeath',
+            frames: this.scene.anims.generateFrameNames('enemydeath', {
+                prefix: 'death/frame000',
+                start: 0,
+                end: 9,
+                zeroPad: 1
+            }),
+            frameRate: 10,
+            repeat: 0
+        });
     }
 
     public getStaticXPosition(): number {
@@ -430,6 +461,7 @@ export class EnemyAntiHero {
         this.spriteIdle = this.scene.physics.add.sprite(xPos, yPos, 'enemyidle');
         this.spriteAttack = this.scene.physics.add.sprite(xPos, yPos, 'enemyattack');
         this.spriteSpecialAttack = this.scene.physics.add.sprite(xPos, yPos, 'enemyspecialattack');
+        this.spriteDeath = this.scene.physics.add.sprite(xPos, yPos, 'enemydeath');
 
         this.applyToAllSprites((sprite) => {
             sprite.setDisplaySize(156, 120);

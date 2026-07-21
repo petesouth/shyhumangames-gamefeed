@@ -9,7 +9,8 @@ export enum SpriteHeroAnimationState {
     RUN = 1,
     JUMPING = 2,
     ATTACK = 3,
-    SPECIAL_ATTACK = 4
+    SPECIAL_ATTACK = 4,
+    DEATH = 5,
 }
 
 export class SpriteHero {
@@ -18,6 +19,7 @@ export class SpriteHero {
     protected spriteJump?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteAttack?: Phaser.Physics.Arcade.Sprite | null;
     protected spriteSpecialAttack?: Phaser.Physics.Arcade.Sprite | null;
+    protected spriteDeath?: Phaser.Physics.Arcade.Sprite | null;
     public soundPlayer: SoundPlayer;
 
     protected attackRate: number = 200;
@@ -54,6 +56,8 @@ export class SpriteHero {
 
     public getActiveSprite(): Phaser.Physics.Arcade.Sprite {
         switch (this.animationState) {
+            case SpriteHeroAnimationState.DEATH:
+                return this.spriteDeath || this.spriteIdle!;
             case SpriteHeroAnimationState.RUN:
                 return this.spriteRun || this.spriteIdle!;
             case SpriteHeroAnimationState.JUMPING:
@@ -69,7 +73,7 @@ export class SpriteHero {
     }
 
     applyToAllSprites(applyHandler: (sprite: Phaser.Physics.Arcade.Sprite) => void) {
-        if (!this.spriteIdle || !this.spriteJump || !this.spriteRun || !this.spriteAttack || !this.spriteSpecialAttack) {
+        if (!this.spriteIdle || !this.spriteJump || !this.spriteRun || !this.spriteAttack || !this.spriteSpecialAttack || !this.spriteDeath) {
             return;
         }
         const sprites: Phaser.Physics.Arcade.Sprite[] = [
@@ -77,7 +81,8 @@ export class SpriteHero {
             this.spriteJump, 
             this.spriteRun, 
             this.spriteAttack, 
-            this.spriteSpecialAttack
+            this.spriteSpecialAttack,
+            this.spriteDeath,
         ];
         sprites.forEach((sprite) => {
             applyHandler(sprite);
@@ -101,6 +106,7 @@ export class SpriteHero {
                 this.spriteRun?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteIdle?.setVisible(true);
                 this.spriteIdle?.play("heroidle", true);
                 this.soundPlayer?.stopRunningSound();
@@ -111,6 +117,7 @@ export class SpriteHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteRun?.setVisible(true);
                 this.spriteRun?.play("herorun", true);
                 this.soundPlayer?.stopFlyingSound();
@@ -121,6 +128,7 @@ export class SpriteHero {
                 this.spriteRun?.setVisible(false);
                 this.spriteIdle?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteJump?.setVisible(true);
                 this.spriteJump?.play("herojump", true);
                 this.soundPlayer?.stopRunningSound();
@@ -131,6 +139,7 @@ export class SpriteHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteAttack?.setVisible(true);
                 this.spriteAttack?.play("heroattack", true);
                 this.soundPlayer?.stopRunningSound();
@@ -141,10 +150,22 @@ export class SpriteHero {
                 this.spriteIdle?.setVisible(false);
                 this.spriteJump?.setVisible(false);
                 this.spriteAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(false);
                 this.spriteSpecialAttack?.setVisible(true);
                 this.spriteSpecialAttack?.play("herospecialattack", true);
                 this.soundPlayer?.stopRunningSound();
                 this.soundPlayer?.playSword2Sound();
+                break;
+            case SpriteHeroAnimationState.DEATH:
+                this.spriteRun?.setVisible(false);
+                this.spriteIdle?.setVisible(false);
+                this.spriteJump?.setVisible(false);
+                this.spriteAttack?.setVisible(false);
+                this.spriteSpecialAttack?.setVisible(false);
+                this.spriteDeath?.setVisible(true);
+                this.spriteDeath?.play("herodeath", true);
+                this.soundPlayer?.stopRunningSound();
+                this.soundPlayer?.stopFlyingSound();
                 break;
         }
     }
@@ -159,7 +180,7 @@ export class SpriteHero {
 
     private handleSpriteMovement() {
         const activeSprite = this.getActiveSprite();
-        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true) {
+        if (!activeSprite || !activeSprite.body || this.swingingSwordSpecial === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
@@ -278,6 +299,17 @@ export class SpriteHero {
             frameRate: 10,
             repeat: -1
         });
+        this.scene.anims.create({
+            key: 'herodeath',
+            frames: this.scene.anims.generateFrameNames('herodeath', {
+                prefix: 'death/frame000',
+                start: 0,
+                end: 9,
+                zeroPad: 1
+            }),
+            frameRate: 10,
+            repeat: 0
+        });
     }
 
     getStaticXPosition() {
@@ -295,6 +327,7 @@ export class SpriteHero {
         this.spriteIdle = this.scene.physics.add.sprite(xPos, yPos, 'heroidle');
         this.spriteAttack = this.scene.physics.add.sprite(xPos, yPos, 'heroattack');
         this.spriteSpecialAttack = this.scene.physics.add.sprite(xPos, yPos, 'herospecialattack');
+        this.spriteDeath = this.scene.physics.add.sprite(xPos, yPos, 'herodeath');
 
         this.applyToAllSprites((sprite) => {
             sprite.setDisplaySize(200, 200);
@@ -332,7 +365,7 @@ export class SpriteHero {
 
     public handleMines() {
         const active = this.getActiveSprite();
-        if (!active) {
+        if (!active || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
         const currentTime = this.scene.time.now;
@@ -350,7 +383,7 @@ export class SpriteHero {
 
     public handleSwordAttacksSpecial() {
         const active = this.getActiveSprite();
-        if (!this.cursors || !active || this.swingingSword === true) {
+        if (!this.cursors || !active || this.swingingSword === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
@@ -368,7 +401,7 @@ export class SpriteHero {
 
     public handleSwordAttacks() {
         const active = this.getActiveSprite();
-        if (!active || this.swingingSwordSpecial === true) {
+        if (!active || this.swingingSwordSpecial === true || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
 
@@ -386,7 +419,7 @@ export class SpriteHero {
 
     public handleBullets() {
         const active = this.getActiveSprite();
-        if (!active) {
+        if (!active || this.animationState === SpriteHeroAnimationState.DEATH) {
             return;
         }
         const currentTime = this.scene.time.now;
