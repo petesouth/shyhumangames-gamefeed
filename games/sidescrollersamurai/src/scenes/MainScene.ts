@@ -118,7 +118,7 @@ export class MainScene extends Phaser.Scene {
 
 
         this.spriteHero?.drawHeroSprite();
-       
+
         const allPlatforms = [
             ...(this.groundGroup?.getChildren() as Phaser.Physics.Arcade.Sprite[] || []),
             ...this.floatingPlatformBodies
@@ -145,7 +145,7 @@ export class MainScene extends Phaser.Scene {
 
         this.repositionResizeTheGameAndWorld(screenWidth, screenHeight);
         this.resizeCreateUpdateMountainsSkyClouds(screenWidth, screenHeight);
-        this.resizeCrateUpdateTheGround(screenWidth, screenHeight);
+        this.resizeCreateUpdateTheGround(screenWidth, screenHeight);
         this.resizeCreateUpdateCharacters(screenWidth);
 
         this.generatePlatforms();
@@ -189,8 +189,8 @@ export class MainScene extends Phaser.Scene {
         this.cloudsSprite.setDepth(this.skySpriteDepth);
         Utils.resizeImageToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
     }
-
-    protected resizeCrateUpdateTheGround(screenWidth: number, screenHeight: number) {
+    /*
+    protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
         if (this.bricksTileSprite) {
             this.bricksTileSprite.destroy();
         }
@@ -211,6 +211,34 @@ export class MainScene extends Phaser.Scene {
 
         this.groundGroupBody.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
         this.groundGroupBody.setPosition(screenWidth / 2, screenHeight);
+        this.groundGroupBody.setVisible(false);
+        this.groundGroupBody.refreshBody();
+        this.bricksTileSprite.tilePositionX = 0;
+    }*/
+    protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
+        if (this.bricksTileSprite) {
+            this.bricksTileSprite.destroy();
+        }
+
+        // Offset by half the ground height so the bottom edge aligns with the screen bottom
+        const groundY = screenHeight - (MainScene.GROUND_HEIGHT / 2);
+
+        this.bricksTileSprite = this.add.tileSprite(0, 0, screenWidth, MainScene.GROUND_HEIGHT, "bricks2");
+        this.bricksTileSprite.setDepth(this.bricksSpriteDepth);
+
+        this.bricksTileSprite.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
+        this.bricksTileSprite.setPosition(screenWidth / 2, groundY);
+        this.bricksTileSprite.tilePositionX = 0;
+        this.bricksTileSprite.tilePositionY = 0;
+        this.bricksTileSprite.update();
+
+        if (!this.groundGroup || !this.groundGroupBody) {
+            this.groundGroup = this.physics.add.staticGroup();
+            this.groundGroupBody = this.groundGroup.create(screenWidth / 2, groundY) as Phaser.Physics.Arcade.Sprite;
+        }
+
+        this.groundGroupBody.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
+        this.groundGroupBody.setPosition(screenWidth / 2, groundY);
         this.groundGroupBody.setVisible(false);
         this.groundGroupBody.refreshBody();
         this.bricksTileSprite.tilePositionX = 0;
@@ -273,8 +301,8 @@ export class MainScene extends Phaser.Scene {
             const randomYPos = Phaser.Math.Between(minYPosition, maxYPosition);
             let randomXPos = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
 
-            let platform = (isCreated) 
-                ? this.floatingPlatformBodies[i] 
+            let platform = (isCreated)
+                ? this.floatingPlatformBodies[i]
                 : this.groundGroup.create(randomXPos, randomYPos, "bricks2") as Phaser.Physics.Arcade.Sprite;
 
             platform.setDisplaySize(randomWidth, displayPlatformHeight);
@@ -306,45 +334,45 @@ export class MainScene extends Phaser.Scene {
         if (!this.spriteHero || !this.enemyAntiHero) {
             return;
         }
-        
+
         const horizontalGapMin: number = 100;
         let lastPlatformEndX: number = 0;
-    
-        let levelGrid: number[][] = Array.from({ length: screenHeight }, () => 
-                                      Array.from({ length: screenWidth }, () => 0));
-    
+
+        let levelGrid: number[][] = Array.from({ length: screenHeight }, () =>
+            Array.from({ length: screenWidth }, () => 0));
+
         this.floatingPlatformBodies.forEach((platform: Phaser.Physics.Arcade.Image) => {
             let randomXPos: number = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
             platform.x = randomXPos;
             lastPlatformEndX = platform.x + platform.displayWidth;
-    
+
             const gridY: number = Math.floor(platform.y / screenHeight * levelGrid.length);
             const gridXStart: number = Math.floor(platform.x / screenWidth * levelGrid[0].length);
             const gridXEnd: number = Math.floor((platform.x + platform.displayWidth) / screenWidth * levelGrid[0].length);
-    
+
             for (let x: number = gridXStart; x <= gridXEnd && x < levelGrid[0].length; x++) {
                 if (gridY < levelGrid.length) {
                     levelGrid[gridY][x] = 1;
                 }
             }
         });
-    
+
         this.easyJs.setGrid(levelGrid);
         this.easyJs.setAcceptableTiles([1]);
-    
+
         const heroPosition = this.spriteHero.getCenter();
         const enemyPosition = this.enemyAntiHero.getCenter();
-    
+
         const heroGridPos = {
             x: Math.floor(heroPosition.x / screenWidth * levelGrid[0].length),
             y: Math.floor(heroPosition.y / screenHeight * levelGrid.length)
         };
-    
+
         const enemyGridPos = {
             x: Math.floor(enemyPosition.x / screenWidth * levelGrid[0].length),
             y: Math.floor(enemyPosition.y / screenHeight * levelGrid.length)
         };
-    
+
         this.easyJs.findPath(enemyGridPos.x, enemyGridPos.y, heroGridPos.x, heroGridPos.y, path => {
             if (path !== null && path.length > 0) {
                 console.log("Path found", path);
@@ -354,17 +382,17 @@ export class MainScene extends Phaser.Scene {
         });
         this.easyJs.calculate();
     }
-    
+
     createOneSinglePlatform(screenWidth: number, screenHeight: number) {
         const map = this.make.tilemap({ key: 'tilemap' });
         const tileset = map.addTilesetImage('tilesetImage');
-    
+
         if (tileset != null) {
             const platformX = screenWidth / 2;
             const platformY = screenHeight / 2;
-    
+
             const layer = map.createLayer('layerName', tileset, platformX, platformY);
-    
+
             if (layer) {
                 layer.setDepth(this.singleTilesPlatformLayerDepth);
                 layer.setDisplaySize(400, 200);
