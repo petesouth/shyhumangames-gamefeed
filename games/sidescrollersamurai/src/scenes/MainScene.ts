@@ -7,6 +7,7 @@ import { SoundPlayer } from '../gameobjects/SoundPlayer';
 import { EnemyAntiHero } from '../gameobjects/EnemyAntiHero';
 import { js as EasyStarJs } from 'easystarjs';
 import { EnemyProfiles } from '../gameobjects/EnemyAIConfig';
+import { KeyboardInputController } from '../gameobjects/KeyboardInputController';
 
 export class MainScene extends Phaser.Scene {
 
@@ -115,16 +116,7 @@ export class MainScene extends Phaser.Scene {
         }
 
         this.groundGroup?.refresh();
-
-
         this.spriteHero?.drawHeroSprite();
-
-        const allPlatforms = [
-            ...(this.groundGroup?.getChildren() as Phaser.Physics.Arcade.Sprite[] || []),
-            ...this.floatingPlatformBodies
-        ];
-        this.enemyAntiHero?.drawHeroSprite(this.spriteHero, allPlatforms);
-
         this.enemyAntiHero?.drawHeroSprite();
     }
 
@@ -222,7 +214,7 @@ export class MainScene extends Phaser.Scene {
 
     protected resizeCreateUpdateCharacters(screenWidth: number) {
         if (!this.spriteHero) {
-            this.spriteHero = new SpriteHero(this, this.cursorKeys, this.soundPlayer);
+            this.spriteHero = new SpriteHero(this, new KeyboardInputController(this), this.soundPlayer);
             this.spriteHero.createHeroSprite();
         } else {
             this.spriteHero.soundPlayer = this.soundPlayer;
@@ -236,7 +228,7 @@ export class MainScene extends Phaser.Scene {
         });
 
         if (!this.enemyAntiHero) {
-            this.enemyAntiHero = new EnemyAntiHero(this, this.soundPlayer, this.spriteHero, EnemyProfiles.HARD);
+            this.enemyAntiHero = new EnemyAntiHero(this, new KeyboardInputController(this), this.soundPlayer);
             this.enemyAntiHero.createHeroSprite();
         } else {
             this.enemyAntiHero.soundPlayer = this.soundPlayer;
