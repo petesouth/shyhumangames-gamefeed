@@ -78,10 +78,13 @@ export class MainScene extends Phaser.Scene {
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x += distanceIncrement;
             });
-            
-            // 0.8 pushes him backward at 192 px/sec
+
+            // Decreasing tilePositionX shifts the repeating brick texture to the right
+            if (this.bricksTileSprite) {
+                this.bricksTileSprite.tilePositionX -= distanceIncrement;
+            }
+
             this.enemyAntiHero?.shiftPosition(distanceIncrement * 0.8);
-            
             this.spriteHero?.drawMines(distanceIncrement);
             this.spriteHero?.drawBullets(distanceIncrement);
             this.enemyAntiHero?.drawMines(distanceIncrement);
@@ -90,10 +93,13 @@ export class MainScene extends Phaser.Scene {
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x -= distanceIncrement;
             });
-            
-            // 0.8 pushes him backward at 192 px/sec
+
+            // Increasing tilePositionX shifts the repeating brick texture to the left
+            if (this.bricksTileSprite) {
+                this.bricksTileSprite.tilePositionX += distanceIncrement;
+            }
+
             this.enemyAntiHero?.shiftPosition(-distanceIncrement * 0.8);
-            
             this.spriteHero?.drawMines(-distanceIncrement);
             this.spriteHero?.drawBullets(-distanceIncrement);
             this.enemyAntiHero?.drawMines(-distanceIncrement);
