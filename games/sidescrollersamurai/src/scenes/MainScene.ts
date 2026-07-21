@@ -189,32 +189,8 @@ export class MainScene extends Phaser.Scene {
         this.cloudsSprite.setDepth(this.skySpriteDepth);
         Utils.resizeImageToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
     }
-    /*
-    protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
-        if (this.bricksTileSprite) {
-            this.bricksTileSprite.destroy();
-        }
-
-        this.bricksTileSprite = this.add.tileSprite(0, 0, screenWidth, MainScene.GROUND_HEIGHT, "bricks2");
-        this.bricksTileSprite.setDepth(this.bricksSpriteDepth);
-
-        this.bricksTileSprite.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
-        this.bricksTileSprite.setPosition(screenWidth / 2, screenHeight);
-        this.bricksTileSprite.tilePositionX = 0;
-        this.bricksTileSprite.tilePositionY = 0;
-        this.bricksTileSprite.update();
-
-        if (!this.groundGroup || !this.groundGroupBody) {
-            this.groundGroup = this.physics.add.staticGroup();
-            this.groundGroupBody = this.groundGroup.create(0, screenHeight) as Phaser.Physics.Arcade.Sprite;
-        }
-
-        this.groundGroupBody.setDisplaySize(screenWidth, MainScene.GROUND_HEIGHT);
-        this.groundGroupBody.setPosition(screenWidth / 2, screenHeight);
-        this.groundGroupBody.setVisible(false);
-        this.groundGroupBody.refreshBody();
-        this.bricksTileSprite.tilePositionX = 0;
-    }*/
+    
+    
     protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
         if (this.bricksTileSprite) {
             this.bricksTileSprite.destroy();
