@@ -5,7 +5,6 @@ import { Utils } from '../utils/utils';
 import { SpriteHero } from '../gameobjects/SpriteHero';
 import { SoundPlayer } from '../gameobjects/SoundPlayer';
 import { EnemyAntiHero } from '../gameobjects/EnemyAntiHero';
-import { js as EasyStarJs } from 'easystarjs';
 import { KeyboardInputController } from '../gameobjects/KeyboardInputController';
 import { EnemyAIInputController } from '../gameobjects/EnemyAIInputController';
 
@@ -33,7 +32,6 @@ export class MainScene extends Phaser.Scene {
     protected soundPlayer!: SoundPlayer;
     protected distanceLeft: number = 0;
     protected distanceRight: number = 0;
-    protected easyJs: EasyStarJs = new EasyStarJs();
 
     private readonly mountainRangeDepth = -10;
     private readonly skySpriteDepth = -11;
@@ -73,37 +71,49 @@ export class MainScene extends Phaser.Scene {
 
         this.mainSceneStartGameText.displayGameText();
         const distanceIncrement = 4;
+        const bgScrollIncrement = distanceIncrement * 0.10;
 
         if (this.cursorKeys?.left.isDown) {
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x += distanceIncrement;
+                (gameObject.body as Phaser.Physics.Arcade.StaticBody)?.updateFromGameObject();
             });
 
-            // Decreasing tilePositionX shifts the repeating brick texture to the right
-            if (this.bricksTileSprite) {
-                this.bricksTileSprite.tilePositionX -= distanceIncrement;
-            }
+            // Ground Floor
+            this.bricksTileSprite.tilePositionX -= distanceIncrement;
+
+            // Backgrounds (Scrolling at identical slow speed)
+            this.mountainRangeSprite.tilePositionX -= distanceIncrement * 0.20;
+            this.cloudsSprite.tilePositionX -= distanceIncrement * 0.10;
+            this.skySprite.tilePositionX -= distanceIncrement * 0.05;
 
             this.enemyAntiHero?.shiftPosition(distanceIncrement * 0.8);
             this.spriteHero?.drawMines(distanceIncrement);
             this.spriteHero?.drawBullets(distanceIncrement);
             this.enemyAntiHero?.drawMines(distanceIncrement);
             this.enemyAntiHero?.drawBullets(distanceIncrement);
+
         } else if (this.cursorKeys?.right.isDown) {
             this.floatingPlatformBodies.forEach((gameObject) => {
                 gameObject.x -= distanceIncrement;
+                (gameObject.body as Phaser.Physics.Arcade.StaticBody)?.updateFromGameObject();
             });
 
-            // Increasing tilePositionX shifts the repeating brick texture to the left
-            if (this.bricksTileSprite) {
-                this.bricksTileSprite.tilePositionX += distanceIncrement;
-            }
+            // Ground Floor
+            this.bricksTileSprite.tilePositionX += distanceIncrement;
+
+            // Backgrounds (Scrolling at identical slow speed)
+            this.mountainRangeSprite.tilePositionX += distanceIncrement * 0.20;
+            this.cloudsSprite.tilePositionX += distanceIncrement * 0.10;
+            this.skySprite.tilePositionX += distanceIncrement * 0.05;
+
 
             this.enemyAntiHero?.shiftPosition(-distanceIncrement * 0.8);
             this.spriteHero?.drawMines(-distanceIncrement);
             this.spriteHero?.drawBullets(-distanceIncrement);
             this.enemyAntiHero?.drawMines(-distanceIncrement);
             this.enemyAntiHero?.drawBullets(-distanceIncrement);
+
         } else {
             this.spriteHero?.drawMines();
             this.spriteHero?.drawBullets();
@@ -164,22 +174,29 @@ export class MainScene extends Phaser.Scene {
             this.skySprite.destroy();
         }
 
-        this.mountainRangeSprite = this.add.tileSprite(0, 0, screenWidth, 320, "grassmountains");
-        this.mountainRangeSprite.setDepth(this.mountainRangeDepth);
-        this.mountainRangeSprite.setDisplaySize(screenWidth, screenHeight + (screenHeight * .4));
-        this.mountainRangeSprite.setPosition(screenWidth / 2, (screenHeight / 2) - (screenHeight * .2));
-        this.mountainRangeSprite.update();
-        this.mountainRangeSprite.setVisible(true);
-
+        // Sky
         this.skySprite = this.add.tileSprite(0, 0, screenWidth, 320, "sky");
         this.skySprite.setDepth(this.skySpriteDepth);
         Utils.resizeImageToRatio(this.skySprite, screenWidth, screenHeight * .8);
 
+        // Clouds
         this.cloudsSprite = this.add.tileSprite(0, 0, screenWidth, 320, "clouds");
         this.cloudsSprite.setDepth(this.skySpriteDepth);
         Utils.resizeImageToRatio(this.cloudsSprite, screenWidth, screenHeight * .8);
-    }
 
+        // Mountains (Positioned using tileScaleY so tilePositionX scrolls properly)
+        const targetHeight = screenHeight + (screenHeight * .4);
+        this.mountainRangeSprite = this.add.tileSprite(
+            screenWidth / 2,
+            (screenHeight / 2) - (screenHeight * .2),
+            screenWidth,
+            targetHeight,
+            "grassmountains"
+        );
+        this.mountainRangeSprite.setDepth(this.mountainRangeDepth);
+        this.mountainRangeSprite.tileScaleY = targetHeight / 320;
+        this.mountainRangeSprite.setVisible(true);
+    }
 
     protected resizeCreateUpdateTheGround(screenWidth: number, screenHeight: number) {
         if (this.bricksTileSprite) {
@@ -202,9 +219,7 @@ export class MainScene extends Phaser.Scene {
             this.groundGroupBody = this.groundGroup.create(screenWidth / 2, groundY) as Phaser.Physics.Arcade.Sprite;
         }
 
-        // CHANGE THIS LINE: Multiply by 20 so the physical floor extends far off-screen!
         this.groundGroupBody.setDisplaySize(screenWidth * 20, MainScene.GROUND_HEIGHT);
-
         this.groundGroupBody.setPosition(screenWidth / 2, groundY);
         this.groundGroupBody.setVisible(false);
         this.groundGroupBody.refreshBody();
@@ -232,10 +247,15 @@ export class MainScene extends Phaser.Scene {
             this.enemyAntiHero = new EnemyAntiHero(this, dummyController, this.soundPlayer);
             this.enemyAntiHero.createHeroSprite();
 
+            const allPlatformsAndGround = [...this.floatingPlatformBodies];
+            if (this.groundGroupBody) {
+                allPlatformsAndGround.push(this.groundGroupBody as any);
+            }
+
             this.enemyAIController = new EnemyAIInputController(
                 this.enemyAntiHero,
                 this.spriteHero!,
-                this.floatingPlatformBodies
+                allPlatformsAndGround
             );
 
             (this.enemyAntiHero as any).controller = this.enemyAIController;
@@ -287,7 +307,7 @@ export class MainScene extends Phaser.Scene {
             platform.x = randomXPos;
             platform.y = randomYPos;
             platform.setVisible(true);
-            platform.refreshBody();
+            (platform.body as Phaser.Physics.Arcade.StaticBody)?.updateFromGameObject();
 
             if (isCreated === false) {
                 this.floatingPlatformBodies.push(platform as Phaser.Physics.Arcade.Image);
@@ -315,49 +335,12 @@ export class MainScene extends Phaser.Scene {
         const horizontalGapMin: number = 100;
         let lastPlatformEndX: number = 0;
 
-        let levelGrid: number[][] = Array.from({ length: screenHeight }, () =>
-            Array.from({ length: screenWidth }, () => 0));
-
         this.floatingPlatformBodies.forEach((platform: Phaser.Physics.Arcade.Image) => {
             let randomXPos: number = Phaser.Math.Between(lastPlatformEndX + horizontalGapMin, lastPlatformEndX + horizontalGapMin + 200);
             platform.x = randomXPos;
+            (platform.body as Phaser.Physics.Arcade.StaticBody)?.updateFromGameObject();
             lastPlatformEndX = platform.x + platform.displayWidth;
-
-            const gridY: number = Math.floor(platform.y / screenHeight * levelGrid.length);
-            const gridXStart: number = Math.floor(platform.x / screenWidth * levelGrid[0].length);
-            const gridXEnd: number = Math.floor((platform.x + platform.displayWidth) / screenWidth * levelGrid[0].length);
-
-            for (let x: number = gridXStart; x <= gridXEnd && x < levelGrid[0].length; x++) {
-                if (gridY < levelGrid.length) {
-                    levelGrid[gridY][x] = 1;
-                }
-            }
         });
-
-        this.easyJs.setGrid(levelGrid);
-        this.easyJs.setAcceptableTiles([1]);
-
-        const heroPosition = this.spriteHero.getCenter();
-        const enemyPosition = this.enemyAntiHero.getCenter();
-
-        const heroGridPos = {
-            x: Math.floor(heroPosition.x / screenWidth * levelGrid[0].length),
-            y: Math.floor(heroPosition.y / screenHeight * levelGrid.length)
-        };
-
-        const enemyGridPos = {
-            x: Math.floor(enemyPosition.x / screenWidth * levelGrid[0].length),
-            y: Math.floor(enemyPosition.y / screenHeight * levelGrid.length)
-        };
-
-        this.easyJs.findPath(enemyGridPos.x, enemyGridPos.y, heroGridPos.x, heroGridPos.y, path => {
-            if (path !== null && path.length > 0) {
-                console.log("Path found", path);
-            } else {
-                console.log("No path found");
-            }
-        });
-        this.easyJs.calculate();
     }
 
     createOneSinglePlatform(screenWidth: number, screenHeight: number) {
