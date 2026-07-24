@@ -1,5 +1,4 @@
-/// <reference path="../node_modules/phaser/types/phaser.d.ts" />
-import * as Phaser from 'phaser';
+import Phaser from 'phaser';
 import { SplashScreen } from './scenes/SplashScreen';
 import { MainScene } from './scenes/MainScene';
 
