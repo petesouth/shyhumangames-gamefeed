@@ -24,7 +24,7 @@
   },
   "scripts": {
     "start": "HOST=0.0.0.0 PORT=8080 react-scripts start",
-    "build": "node -e \"process.env.NODE_ENV='production';const c=require('react-scripts/config/webpack.config');require.cache[require.resolve('react-scripts/config/webpack.config')].exports=(env)=>{const config=c(env);config.output.uniqueName='sidescrollersamurai';config.output.globalObject='this';return config;};require('react-scripts/scripts/build');\"",
+    "build": "node -e \"process.env.NODE_ENV='production';const p=require.resolve('react-scripts/config/webpack.config');const fn=require(p);require(p);require.cache[p].exports=function(...args){const cfg=fn(...args);cfg.optimization.minimize=false;return cfg;};require('react-scripts/scripts/build');\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
