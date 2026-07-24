@@ -4,7 +4,7 @@ rm -rf build
 
 npm install --save
 npm run build
-rm sidescrollersamurai.sip
+rm sidescrollersamurai.zip
 cd build 
 zip -r ../sidescrollersamurai.zip ./
 cd ..
